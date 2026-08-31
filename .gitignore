@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+var/
+storage/
+.DS_Store
+*.log
+.vite/
+.vitest/
+e2e/screenshots/
+openapi.json

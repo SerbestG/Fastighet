@@ -1,0 +1,116 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text-default);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  color: var(--text-strong);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
+h1 { font-size: var(--text-3xl); letter-spacing: -0.025em; }
+h2 { font-size: var(--text-xl); }
+h3 { font-size: var(--text-lg); }
+h4 { font-size: var(--text-md); }
+
+p { margin: 0 0 var(--space-3); }
+p:last-child { margin-bottom: 0; }
+
+a {
+  color: var(--brand-primary);
+  text-underline-offset: 3px;
+}
+a:hover { text-decoration-thickness: 2px; }
+
+img, svg, video { max-width: 100%; height: auto; display: block; }
+
+ul, ol { margin: 0 0 var(--space-3); padding-left: var(--space-5); }
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: var(--space-5) 0;
+}
+
+/* Ett tydligt fokusmarkör som syns mot alla ytor (WCAG 2.4.7). */
+:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* Innehåll som bara ska läsas av skärmläsare. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: -4rem;
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  color: var(--text-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transition: top var(--transition-fast);
+}
+.skip-link:focus { top: var(--space-3); }
+
+/* Respektera användarens val att minska rörelse (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hög kontrast: förstärk linjerna så att struktur inte försvinner. */
+@media (prefers-contrast: more) {
+  :root {
+    --border-subtle: var(--border-strong);
+    --border-default: var(--border-strong);
+    --text-muted: var(--text-default);
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand-accent) 30%, transparent);
+}

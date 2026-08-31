@@ -1,0 +1,40 @@
+import type { FastifyInstance } from 'fastify';
+import { registerAccessRoutes } from './access.js';
+import { registerAdminRoutes } from './admin.js';
+import { registerAnalyticsRoutes } from './analytics.js';
+import { registerAuthRoutes } from './auth.js';
+import { registerBookingRoutes } from './bookings.js';
+import { registerCaseRoutes } from './cases.js';
+import { registerDocumentRoutes } from './documents.js';
+import { registerFileRoutes } from './files.js';
+import { registerHealthRoutes } from './health.js';
+import { registerHomeRoutes } from './home.js';
+import { registerMessageRoutes } from './messages.js';
+import { registerMovingRoutes } from './moving.js';
+import { registerNoticeRoutes } from './notices.js';
+import { registerOpenApiRoutes } from '../openapi/routes.js';
+import { registerProfileRoutes } from './profile.js';
+import { registerPropertyRoutes } from './properties.js';
+import { registerSurveyRoutes } from './surveys.js';
+import { registerWorkOrderRoutes } from './workorders.js';
+
+export async function registerRoutes(app: FastifyInstance): Promise<void> {
+  await registerHealthRoutes(app);
+  await registerOpenApiRoutes(app);
+  await registerAuthRoutes(app);
+  await registerProfileRoutes(app);
+  await registerHomeRoutes(app);
+  await registerFileRoutes(app);
+  await registerCaseRoutes(app);
+  await registerBookingRoutes(app);
+  await registerNoticeRoutes(app);
+  await registerMessageRoutes(app);
+  await registerDocumentRoutes(app);
+  await registerMovingRoutes(app);
+  await registerSurveyRoutes(app);
+  await registerAccessRoutes(app);
+  await registerPropertyRoutes(app);
+  await registerWorkOrderRoutes(app);
+  await registerAnalyticsRoutes(app);
+  await registerAdminRoutes(app);
+}

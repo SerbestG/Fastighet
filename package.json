@@ -1,0 +1,36 @@
+{
+  "name": "hemvist",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hemvist – digital plattform för hyresgäster och fastighetsförvaltare",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/shared",
+    "packages/api",
+    "packages/web"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "build": "npm run build -w @hemvist/shared && npm run build -w @hemvist/api && npm run build -w @hemvist/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run typecheck",
+    "test": "npm run test -w @hemvist/api && npm run test -w @hemvist/web",
+    "test:api": "npm run test -w @hemvist/api",
+    "test:web": "npm run test -w @hemvist/web",
+    "db:migrate": "npm run db:migrate -w @hemvist/api",
+    "db:seed": "npm run db:seed -w @hemvist/api",
+    "db:reset": "npm run db:reset -w @hemvist/api",
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w @hemvist/api\" \"npm run dev -w @hemvist/web\"",
+    "dev:api": "npm run dev -w @hemvist/api",
+    "dev:web": "npm run dev -w @hemvist/web",
+    "start": "npm run start -w @hemvist/api",
+    "e2e": "node e2e/resident.mjs && node e2e/staff.mjs && node e2e/contractor.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "playwright": "^1.49.1",
+    "typescript": "^5.7.3"
+  }
+}
