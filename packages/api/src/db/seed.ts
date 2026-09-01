@@ -696,7 +696,7 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
     { kind: 'payments', name: 'Betallösning', status: 'planned', notes: 'Ingen betalning sker i appen förrän avtal och integration finns.' },
     { kind: 'e_signing', name: 'Digital signering', status: 'planned', notes: 'Kräver avtal med signeringsleverantör.' },
     { kind: 'finance', name: 'Ekonomisystem', status: 'requires_configuration', notes: 'Avier importeras i dag som fil. Direktintegration kräver konfiguration.' },
-    { kind: 'maps', name: 'Kartunderlag', status: 'connected', notes: 'Öppna kartdata används för ärendekartan. Ingen nyckel krävs.' },
+    { kind: 'maps', name: 'Kartunderlag', status: 'requires_configuration', notes: 'Ärendekartan placerar fastigheterna utifrån egna koordinater. Bakgrundskarta hämtas först när en kartleverantör konfigurerats.' },
     { kind: 'calendar', name: 'Extern kalender', status: 'connected', notes: 'Bokningar kan laddas ned som ICS-fil utan extern tjänst.' },
     { kind: 'digital_locks', name: 'Digitala lås', status: 'planned', notes: 'Digitala nycklar visas inte förrän en verklig integration finns.' },
     { kind: 'contractor_system', name: 'Entreprenörssystem', status: 'planned', notes: 'Arbetsorder hanteras i entreprenörsportalen tills integration finns.' },

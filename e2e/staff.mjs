@@ -25,7 +25,10 @@ function totp(secret) {
   const bin = ((d[off] & 0x7f) << 24) | ((d[off + 1] & 0xff) << 16) | ((d[off + 2] & 0xff) << 8) | (d[off + 3] & 0xff);
   return String(bin % 1000000).padStart(6, '0');
 }
-const secret = execSync(`su postgres -c "psql -d hemvist -tAc \\"select mfa_secret from users where email='anna.lindqvist@demo-botkyrkabyggen.se'\\""`).toString().trim();
+// Engångskoden räknas fram lokalt ur demoanvändarens hemlighet.
+const secret = execSync(
+  `psql "${process.env.DATABASE_ADMIN_URL ?? 'postgresql://postgres:postgres@localhost:5432/hemvist'}" -tAc "select mfa_secret from users where email='anna.lindqvist@demo-botkyrkabyggen.se'"`,
+).toString().trim();
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox'] });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'sv-SE' });
