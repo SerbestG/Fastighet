@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { spaceLabel } from '@hemvist/shared';
 import { ApiError, api, uploadFiles } from '../lib/api.js';
+import { prepareForUpload } from '../lib/images.js';
 import { useI18n } from '../lib/i18n.js';
 import { useQuery } from '../lib/useQuery.js';
 import { useToast } from '../lib/toast.js';
@@ -99,7 +100,8 @@ export function WorkOrdersPage() {
   const addPhoto = async (files: FileList | null) => {
     if (!files?.length) return;
     try {
-      const uploaded = await uploadFiles([...files]);
+      const prepared = await prepareForUpload([...files]);
+      const uploaded = await uploadFiles(prepared.map((item) => item.file));
       setAttachmentIds((current) => [...current, ...uploaded.map((file) => file.id)]);
       toast.show(`${uploaded.length} bild(er) tillagda.`);
     } catch (caught) {

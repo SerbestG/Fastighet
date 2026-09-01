@@ -967,7 +967,9 @@ async function attachFiles(
     [fileIds, auth.userId],
   );
   if (valid.rowCount !== fileIds.length) {
-    throw badRequest('En eller flera bilagor kunde inte kopplas till ärendet.');
+    throw badRequest(
+      'En eller flera bilagor kunde inte kopplas till ärendet. Filer som väntar på säkerhetsgranskning kan inte användas ännu.',
+    );
   }
   for (const file of valid.rows) {
     await client.query(
@@ -1006,5 +1008,3 @@ function statusMessage(status: CaseStatus): string {
   };
   return messages[status] ?? 'Ditt ärende har uppdaterats.';
 }
-
-export { AppError };

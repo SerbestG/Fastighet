@@ -10,6 +10,14 @@ export default defineConfig({
       '/api': { target: process.env.API_URL ?? 'http://localhost:4000', changeOrigin: true },
     },
   },
+  // Förhandsvisning av det byggda resultatet använder samma vidarebefordran,
+  // så att servicearbetaren kan provas mot ett riktigt API.
+  preview: {
+    port: 4173,
+    proxy: {
+      '/api': { target: process.env.API_URL ?? 'http://localhost:4000', changeOrigin: true },
+    },
+  },
   build: { outDir: 'dist', sourcemap: true, target: 'es2022' },
   test: {
     environment: 'jsdom',

@@ -1,0 +1,75 @@
+name: Kontroll
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  kontroll:
+    name: Typkontroll, bygge och tester
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hemvist_test
+        ports:
+          - 5432:5432
+        # Migreringarna körs först när databasen svarar.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: hemvist_test
+      PGADMINUSER: postgres
+      PGADMINPASSWORD: postgres
+      APP_DB_PASSWORD: hemvist_app
+      JWT_SECRET: ci-nyckel-som-ar-minst-trettiotva-tecken-lang
+      LOOKUP_PEPPER: ci-peppar-som-ar-minst-trettiotva-tecken-lang
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installera beroenden
+        run: npm ci
+
+      - name: Typkontroll
+        run: npm run typecheck
+
+      - name: Bygg
+        run: npm run build
+
+      # Testerna kör mot en riktig databas, eftersom kundsepareringen bygger på
+      # Row Level Security och inte går att verifiera mot en attrapp.
+      - name: Tester
+        run: npm test
+
+      - name: Kontrollera att API-beskrivningen går att generera
+        run: npm run openapi -w @hemvist/api
+
+  sarbarheter:
+    name: Sårbarheter i beroenden
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Rapporterar men fäller inte bygget; åtgärd sker enligt rutinen för
+      # sårbarhetshantering.
+      - run: npm audit --audit-level=high || true

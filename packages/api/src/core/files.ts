@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import type pg from 'pg';
 import { config } from '../config.js';
 import { AppError } from './errors.js';
+import { scanUpload } from './scanning.js';
 
 /**
  * Filhantering.
@@ -48,6 +49,8 @@ export interface StoredFile {
   mimeType: string;
   sizeBytes: number;
   checksum: string;
+  /** `pending` betyder att filen ligger i karantän i väntan på granskning. */
+  scanStatus: 'clean' | 'pending';
 }
 
 function safeName(name: string): string {
@@ -100,6 +103,9 @@ export async function storeFile(
   },
 ): Promise<StoredFile> {
   const mimeType = inspect(params.buffer, params.mimeType, params.originalName);
+  // Granskning hos en konfigurerad skanningstjänst. En fil som inte kunnat
+  // granskas sparas i karantän och går inte att hämta.
+  const scan = await scanUpload(params.buffer, params.originalName);
   const checksum = createHash('sha256').update(params.buffer).digest('hex');
   const storageKey = `${params.orgId}/${new Date().getFullYear()}/${randomUUID()}`;
 
@@ -109,8 +115,8 @@ export async function storeFile(
 
   const result = await client.query<{ id: string }>(
     `insert into files (org_id, storage_key, original_name, mime_type, size_bytes, checksum_sha256,
-                        scan_status, uploaded_by)
-     values ($1,$2,$3,$4,$5,$6,'clean',$7)
+                        scan_status, scan_detail, uploaded_by)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      returning id`,
     [
       params.orgId,
@@ -119,6 +125,8 @@ export async function storeFile(
       mimeType,
       params.buffer.length,
       checksum,
+      scan.scanStatus,
+      scan.detail,
       params.uploadedBy,
     ],
   );
@@ -130,6 +138,7 @@ export async function storeFile(
     mimeType,
     sizeBytes: params.buffer.length,
     checksum,
+    scanStatus: scan.scanStatus,
   };
 }
 

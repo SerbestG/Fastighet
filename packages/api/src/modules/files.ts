@@ -15,7 +15,13 @@ export async function registerFileRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/files', async (request) => {
     const auth = requireAuth(request);
     const parts = request.files();
-    const stored: unknown[] = [];
+    const stored: {
+      id: string;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+      scanStatus: 'clean' | 'pending';
+    }[] = [];
 
     for await (const part of parts) {
       const buffer = await part.toBuffer();
@@ -33,12 +39,27 @@ export async function registerFileRoutes(app: FastifyInstance): Promise<void> {
         originalName: file.originalName,
         mimeType: file.mimeType,
         sizeBytes: file.sizeBytes,
+        scanStatus: file.scanStatus,
       });
     }
 
     if (stored.length === 0) throw badRequest('Ingen fil togs emot.');
-    await audit(request, { action: 'file.uploaded', detail: { count: stored.length } });
-    return { files: stored };
+
+    // En fil som inte kunnat granskas ligger i karantän och går varken att
+    // koppla till ett ärende eller att hämta. Klienten får veta det direkt.
+    const quarantined = stored.filter((file) => file.scanStatus !== 'clean');
+    await audit(request, {
+      action: 'file.uploaded',
+      detail: { count: stored.length, quarantined: quarantined.length },
+    });
+    return {
+      files: stored,
+      quarantined: quarantined.length,
+      message:
+        quarantined.length > 0
+          ? 'En eller flera filer väntar på säkerhetsgranskning och kan inte användas ännu.'
+          : null,
+    };
   });
 
   app.get<{ Params: { id: string } }>('/api/files/:id', async (request, reply) => {

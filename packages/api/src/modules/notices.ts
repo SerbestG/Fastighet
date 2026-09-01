@@ -419,5 +419,3 @@ export async function deliverNotice(
   });
   return new Set(users.map((u) => u.userId)).size;
 }
-
-export { conflict };

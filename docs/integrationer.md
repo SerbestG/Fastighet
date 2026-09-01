@@ -40,6 +40,7 @@ Det gör att listan inte kan visa en anslutning som inte existerar.
 | Mätvärden el och vatten | Mätning | Planerad | Mätvärdesinsamling per objekt |
 | Identitetsverifiering | Identitet | Planerad | Avtal med leverantör |
 | Kundserviceplattform | Kundservice | Frånkopplad | Ny anslutning vid behov |
+| Säkerhetsgranskning av bilagor | Filgranskning | Kräver konfiguration | Adress till ClamAV eller motsvarande i `FILE_SCAN_URL` |
 
 ## Vad som är avstängt tills en integration är ansluten
 
@@ -55,6 +56,7 @@ Detta är kärnan i att appen inte lovar mer än den håller:
 | Förbrukning av el och vatten | Mätvärden | Funktionen visas inte alls hellre än att visa tomma grafer |
 | Utgående e-post och SMS | E-post, SMS | Meddelandet köas och markeras som blockerat; det syns i driftvyn att det inte gick fram |
 | Överföring av ändrade kontaktuppgifter | Fastighetssystem | Uppgiften sparas i plattformen och användaren får beskedet att den ännu inte förts vidare |
+| Extern granskning av bilagor | Filgranskning | Filtyp och innehåll kontrolleras alltid; extern skanning sker när tjänsten är ansluten |
 
 ## Integrationsarkitektur
 

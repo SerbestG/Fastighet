@@ -7,7 +7,6 @@ import {
   BuildingIcon,
   ChartIcon,
   ClipboardIcon,
-  DocumentIcon,
   InvoiceIcon,
   LinkIcon,
   LogoutIcon,
@@ -162,5 +161,3 @@ export function StaffShell() {
     </div>
   );
 }
-
-export { DocumentIcon };

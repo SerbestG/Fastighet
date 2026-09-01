@@ -5,13 +5,13 @@ import {
   COMMON_AREA_SPACES,
   RESIDENCE_SPACES,
   derivePriority,
-  findSubcategory,
   type CaseCategory,
   type CaseLocationKind,
   type CaseSubcategory,
   type TriageQuestion,
 } from '@hemvist/shared';
 import { ApiError, api, uploadFiles } from '../lib/api.js';
+import { describeSaving, prepareForUpload } from '../lib/images.js';
 import { useAuth } from '../lib/auth.js';
 import { useI18n } from '../lib/i18n.js';
 import { useQuery } from '../lib/useQuery.js';
@@ -130,14 +130,19 @@ export function NewCasePage() {
     if (!fileList?.length) return;
     setUploading(true);
     try {
-      const uploaded = await uploadFiles([...fileList].slice(0, 10 - attachments.length));
+      const chosen = [...fileList].slice(0, 10 - attachments.length);
+      // Bilder skalas ned innan de lämnar telefonen (krav B.1.32).
+      const prepared = await prepareForUpload(chosen);
+      const uploaded = await uploadFiles(prepared.map((item) => item.file));
       setAttachments((current) => [
         ...current,
         ...uploaded.map((file, index) => ({
           ...file,
-          previewUrl: fileList[index] ? URL.createObjectURL(fileList[index]!) : undefined,
+          previewUrl: prepared[index] ? URL.createObjectURL(prepared[index]!.file) : undefined,
         })),
       ]);
+      const saving = describeSaving(prepared);
+      if (saving) toast.show(saving);
     } catch (caught) {
       const apiError = caught as ApiError;
       toast.show(apiError.message, 'error', apiError.traceId);
@@ -567,5 +572,3 @@ function TriageField({
     </fieldset>
   );
 }
-
-export { findSubcategory };

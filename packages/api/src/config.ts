@@ -105,6 +105,13 @@ export const config = {
     )
       .split(',')
       .map((m) => m.trim()),
+    /**
+     * Adress till skanningstjänst för uppladdat innehåll. Utan adress sker
+     * enbart den strukturella kontrollen (se src/core/scanning.ts).
+     */
+    scanUrl: env.FILE_SCAN_URL,
+    scanApiKey: env.FILE_SCAN_API_KEY,
+    scanTimeoutMs: num('FILE_SCAN_TIMEOUT_MS', 10_000),
   },
 
   jobs: {

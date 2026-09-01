@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hemvist">
+  <rect width="512" height="512" fill="#1F3A34"/>
+  <g transform="translate(256 256) scale(0.68) translate(-256 -256)">
+    <path d="M128 248 256 144l128 104" fill="none" stroke="#F7F5F1" stroke-width="34"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M163 233v135h186V233" fill="none" stroke="#F7F5F1" stroke-width="34"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M227 368v-69h58v69" fill="none" stroke="#C6704F" stroke-width="34"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

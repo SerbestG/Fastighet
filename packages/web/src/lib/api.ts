@@ -195,7 +195,16 @@ export const api = {
 };
 
 /** Filuppladdning använder multipart och sätter därför inte content-type själv. */
-export async function uploadFiles(files: File[]): Promise<{ id: string; originalName: string; mimeType: string; sizeBytes: number }[]> {
+export interface UploadedFile {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** `pending` betyder att filen väntar på säkerhetsgranskning. */
+  scanStatus: 'clean' | 'pending';
+}
+
+export async function uploadFiles(files: File[]): Promise<UploadedFile[]> {
   const form = new FormData();
   for (const file of files) form.append('file', file);
   const tokens = readTokens();
@@ -205,7 +214,12 @@ export async function uploadFiles(files: File[]): Promise<{ id: string; original
     body: form,
   });
   if (!response.ok) throw await parseError(response);
-  const data = (await response.json()) as { files: { id: string; originalName: string; mimeType: string; sizeBytes: number }[] };
+  const data = (await response.json()) as { files: UploadedFile[]; message: string | null };
+  if (data.message) {
+    // Servern har satt filen i karantän; den kan inte kopplas till ett ärende.
+    // Statusen speglar att åtgärden inte kan slutföras, inte serverns svarskod.
+    throw new ApiError(409, 'file_quarantined', data.message);
+  }
   return data.files;
 }
 

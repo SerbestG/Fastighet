@@ -89,9 +89,30 @@ en användare kan uppge exakt vilket anrop som gick fel.
 - Sökvägen kontrolleras mot lagringsroten så att en manipulerad referens inte kan
   peka ut något annat på disken.
 
-**Extern virusskanning saknas.** Filer får status `clean` efter typkontrollen.
-Ett anrop till en skanningstjänst ska kopplas in innan produktionssättning; fältet
-`scan_status` finns redan och nedladdning av en fil som inte är godkänd nekas.
+**Bilder skalas ned innan de laddas upp.** En bild från en mobilkamera skalas ned
+till högst 2048 px längsta sida i klienten, innan filen lämnar telefonen. En
+ogenomskinlig PNG kodas om till JPEG. I mätning gav det 24 MB → 1 MB för en
+bild på 3600 × 2400. Det sparar hyresgästens mobildata och gör uppladdningen
+möjlig på en svag uppkoppling. Går bilden inte att avkoda laddas originalet upp
+oförändrat – hellre en stor bild än ingen bild.
+
+**Extern virusskanning är pluggbar och avstängd som standard.** Sätts
+`FILE_SCAN_URL` granskas varje uppladdad fil av tjänsten innan den sparas:
+
+| Utfall | Vad som händer |
+| --- | --- |
+| Ren | Filen sparas med status `clean` och kan användas |
+| Skadlig | Uppladdningen avvisas, filen sparas aldrig |
+| Skannern svarar inte | Filen sparas i **karantän** med status `pending` |
+
+En fil i karantän kan varken kopplas till ett ärende eller hämtas, och användaren
+får besked direkt. En otillgänglig skanner leder alltså aldrig till att
+kontrollen tyst uteblir.
+
+Utan konfigurerad tjänst sparas filer med status `clean` efter enbart den
+strukturella kontrollen. Det är ett medvetet val: alternativet vore att spärra
+all uppladdning i en installation som ännu inte har någon skanningstjänst.
+Anslut en tjänst före produktionssättning.
 
 ## Transport
 
@@ -154,7 +175,7 @@ organisation, och först efter beställarens godkännande (krav C.10.1, C.10.2).
 
 | Område | Läge | Vad som krävs |
 | --- | --- | --- |
-| Virusskanning av uppladdade filer | Typkontroll finns, extern skanning saknas | Anslutning till skanningstjänst |
+| Virusskanning av uppladdade filer | Adapter finns och är testad, ingen tjänst ansluten | `FILE_SCAN_URL` mot ClamAV eller motsvarande |
 | BankID | Förberett, ej anslutet | Avtal och produktionscertifikat |
 | Federerad inloggning (Entra ID) | Förberett, ej anslutet | Appregistrering i kundens katalog |
 | Säkerhetstest av tredje part | Ej genomfört | Penetrationstest före produktionssättning |

@@ -50,6 +50,7 @@ const KIND_LABEL: Record<string, string> = {
   calendar: 'Externa kalendrar',
   metering: 'Mätvärden',
   sso: 'Federerad inloggning',
+  file_scanning: 'Säkerhetsgranskning av bilagor',
 };
 
 /**

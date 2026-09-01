@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth.js';
 import { useI18n } from '../lib/i18n.js';
 import { useQuery } from '../lib/useQuery.js';
+import { watchConnection } from '../lib/offline.js';
 import { BellIcon, CalendarIcon, HomeIcon, MenuIcon, UserIcon, WrenchIcon } from '../components/icons.js';
 import { HomePage } from './HomePage.js';
 import { CasesPage } from './CasesPage.js';
@@ -36,6 +38,9 @@ export function ResidentShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const unread = useQuery<{ unreadCount: number }>('/api/me/notifications?unreadOnly=true&limit=1');
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => watchConnection(setOnline), []);
 
   const organisation = me?.organisation;
   const initials = (organisation?.display_name ?? 'H').slice(0, 1).toUpperCase();
@@ -65,6 +70,16 @@ export function ResidentShell() {
           {unreadCount > 0 ? <span className="dot">{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
         </NavLink>
       </header>
+
+      {!online ? (
+        <p
+          role="status"
+          className="banner banner-warning"
+          style={{ margin: 'var(--space-3) var(--space-4) 0', borderRadius: 'var(--radius-md)' }}
+        >
+          {t('common.offline')}
+        </p>
+      ) : null}
 
       <main id="huvudinnehall" className="grow" key={location.pathname}>
         <Routes>

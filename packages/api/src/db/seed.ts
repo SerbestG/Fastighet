@@ -646,6 +646,7 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
     { kind: 'customer_service', name: 'Kundserviceplattform', status: 'disconnected', notes: 'Tidigare kopplad. Anslutningen är avstängd.' },
     { kind: 'identity', name: 'Identitetsverifiering', status: 'planned', notes: 'Används vid utökad verifiering av nya konton.' },
     { kind: 'rent_invoicing', name: 'Hyresavisering', status: 'sandbox', notes: 'Testmiljö mot aviseringsleverantören. Inte i produktion.' },
+    { kind: 'file_scanning', name: 'Säkerhetsgranskning av bilagor', status: 'requires_configuration', notes: 'Filtyp och innehåll kontrolleras alltid. Extern skanning aktiveras med FILE_SCAN_URL.' },
   ];
   for (const integration of integrations) {
     await insert(client, 'integrations', { org_id: orgId, ...integration });

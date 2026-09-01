@@ -77,6 +77,8 @@ packages/
 e2e/        Genomgång av användarresan i webbläsare
 docs/
   arkitektur.md              Teknisk uppbyggnad
+  handbok-handlaggare.md     Handledning för handläggare och administratörer
+  guide-hyresgast.md         Kort guide för hyresgäster
   sakerhet.md                Säkerhet, behörigheter och personuppgifter
   integrationer.md           Integrationsregister och vad som krävs
   kravuppfyllnad.md          Spårning mot Bilaga 3 Kravspecifikation
@@ -88,6 +90,8 @@ docs/
 
 ## Dokumentation
 
+- [Handbok för handläggare](docs/handbok-handlaggare.md)
+- [Guide för hyresgäster](docs/guide-hyresgast.md)
 - [Arkitektur](docs/arkitektur.md)
 - [Säkerhet och personuppgifter](docs/sakerhet.md)
 - [Integrationer](docs/integrationer.md)

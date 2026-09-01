@@ -26,6 +26,15 @@ export CHROMIUM_PATH=/sökväg/till/chrome
 node e2e/resident.mjs      # hyresgästens resa
 node e2e/staff.mjs         # förvaltarens arbetsyta
 node e2e/contractor.mjs    # entreprenörsportalen
+node e2e/image-resize.mjs  # kontroll av att bilder skalas ned (krav B.1.32)
+```
+
+Servicearbetaren kräver en byggd version:
+
+```bash
+npm run build -w @hemvist/web
+API_URL=http://localhost:4000 npx vite preview --port 4173 -w @hemvist/web
+node e2e/service-worker.mjs   # granskar att inga uppgifter cachas på enheten
 ```
 
 Skärmbilder hamnar i `e2e/screenshots/`.

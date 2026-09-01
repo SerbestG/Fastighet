@@ -199,5 +199,3 @@ export async function registerAccessRoutes(app: FastifyInstance): Promise<void> 
     });
   });
 }
-
-export { badRequest };

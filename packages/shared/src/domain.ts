@@ -237,6 +237,7 @@ export const INTEGRATION_KINDS = [
   'calendar',
   'metering',
   'sso',
+  'file_scanning',
 ] as const;
 export type IntegrationKind = (typeof INTEGRATION_KINDS)[number];
 

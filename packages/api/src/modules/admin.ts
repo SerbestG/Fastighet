@@ -494,5 +494,3 @@ async function setScopes(
     );
   }
 }
-
-export { hashToken };

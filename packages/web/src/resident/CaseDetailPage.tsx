@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { categoryLabel, spaceLabel, subcategoryLabel } from '@hemvist/shared';
 import { ApiError, api, openProtectedFile, uploadFiles } from '../lib/api.js';
+import { describeSaving, prepareForUpload } from '../lib/images.js';
 import { useI18n } from '../lib/i18n.js';
 import { useQuery } from '../lib/useQuery.js';
 import { useToast } from '../lib/toast.js';
@@ -118,7 +119,10 @@ export function CaseDetailPage() {
     if (!files?.length) return;
     setUploading(true);
     try {
-      const uploaded = await uploadFiles([...files]);
+      const prepared = await prepareForUpload([...files]);
+      const uploaded = await uploadFiles(prepared.map((item) => item.file));
+      const saving = describeSaving(prepared);
+      if (saving) toast.show(saving);
       await sendComment(uploaded.map((file) => file.id));
     } catch (caught) {
       const error = caught as ApiError;
