@@ -25,6 +25,64 @@ const daysFromNow = (days: number) => new Date(now.getTime() + days * 86_400_000
 const hoursFromNow = (hours: number) => new Date(now.getTime() + hours * 3_600_000);
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
+const APP_ZONE = 'Europe/Stockholm';
+
+/** Zonens avvikelse från UTC i minuter vid en viss tidpunkt. */
+function zoneOffsetMinutes(at: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: APP_ZONE,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(at);
+  const part = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+  const asIfUtc = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour') === 24 ? 0 : part('hour'),
+    part('minute'),
+    part('second'),
+  );
+  return (asIfUtc - at.getTime()) / 60_000;
+}
+
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * Antal dagar fram till nästa angivna veckodag i svensk tid (0 = söndag).
+ * Används för att demodata ska stämma med sin egen text: står det att vattnet
+ * stängs av på torsdag ska tidpunkten också vara en torsdag.
+ */
+function daysUntilWeekday(weekday: number, minDays = 1): number {
+  for (let offset = minDays; offset < minDays + 7; offset += 1) {
+    const day = atLocalTime(offset, 12);
+    const name = new Intl.DateTimeFormat('en-US', { timeZone: APP_ZONE, weekday: 'short' }).format(day);
+    if (WEEKDAY_NAMES.indexOf(name) === weekday) return offset;
+  }
+  return minDays;
+}
+
+/**
+ * Tidpunkten för ett klockslag i svensk tid, oavsett vilken tidszon servern
+ * kör i. Utan detta hamnar demodata fel så snart seeden körs i UTC – en
+ * tvättid klockan 19 skulle visas som 21 i appen, alltså efter stängning.
+ */
+function atLocalTime(daysAhead: number, hour: number, minute = 0): Date {
+  const day = isoDate(daysFromNow(daysAhead));
+  const naive = new Date(
+    `${day}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00Z`,
+  );
+  // Två steg räcker för att landa rätt även dygnet då sommartiden växlar.
+  let instant = new Date(naive.getTime() - zoneOffsetMinutes(naive) * 60_000);
+  instant = new Date(naive.getTime() - zoneOffsetMinutes(instant) * 60_000);
+  return instant;
+}
+
 async function insert<T extends Record<string, unknown>>(
   client: pg.PoolClient,
   table: string,
@@ -787,9 +845,8 @@ async function seedActivity(client: pg.PoolClient, ctx: OrgContext, bp: OrgBluep
   });
 
   const visitResourceId = ctx.resourceIds[ctx.resourceIds.length - 1]!;
-  // Besöket läggs klockan 09.00 nästa dag, inte ett godtyckligt antal timmar fram.
-  const visitStart = new Date(daysFromNow(1));
-  visitStart.setHours(9, 0, 0, 0);
+  // Besöket ligger 09.00–11.00 svensk tid nästa dag, inom resursens öppettider.
+  const visitStart = atLocalTime(1, 9);
   const visitEnd = new Date(visitStart.getTime() + 2 * 3_600_000);
   await insert(client, 'bookings', {
     org_id: orgId,
@@ -858,7 +915,74 @@ async function seedActivity(client: pg.PoolClient, ctx: OrgContext, bp: OrgBluep
     resolved: true,
   });
 
+  /* --------------------------------- ärende utlagt på entreprenör --- */
+  // Ett uppdrag ligger som erbjudet, så att entreprenörsportalen har innehåll
+  // direkt efter seed och kontaktspärren går att se före accept.
+  const contractorCaseId = await insert(client, 'cases', {
+    org_id: orgId,
+    case_number: await nextCaseNumber(),
+    kind: 'fault_report',
+    status: 'assigned',
+    priority: 'normal',
+    location_kind: 'residence',
+    category_key: 'heating',
+    subcategory_key: 'no_heat',
+    space: 'living_room',
+    title: 'Elementet i vardagsrummet blir inte varmt',
+    description:
+      'Elementet under fönstret är kallt längst ned även när termostaten står på max. Det klickar till ibland men blir aldrig varmt.',
+    tenancy_id: tenancyId,
+    unit_id: unit.id,
+    building_id: unit.buildingId,
+    property_id: unit.propertyId,
+    area_id: unit.areaId,
+    reporter_user_id: firstResident,
+    team_id: ctx.teamIds['VVS och el'],
+    contractor_org_id: ctx.contractorOrgId,
+    allow_master_key: true,
+    contact_phone: '070-123 45 67',
+    triage_answers: JSON.stringify({ temperature: '18_20', radiators: 'no' }),
+    sla_respond_at: hoursFromNow(-2),
+    sla_resolve_at: hoursFromNow(70),
+    first_response_at: hoursFromNow(-4),
+    created_at: hoursFromNow(-6),
+    updated_at: hoursFromNow(-2),
+  });
+  for (const event of [
+    { at: hoursFromNow(-6), kind: 'created', to_status: 'received', actor: firstResident },
+    { at: hoursFromNow(-4), kind: 'status_changed', from_status: 'received', to_status: 'under_review', actor: serviceId },
+    { at: hoursFromNow(-2), kind: 'assigned', from_status: 'under_review', to_status: 'assigned', actor: serviceId },
+  ]) {
+    await insert(client, 'case_events', {
+      org_id: orgId,
+      case_id: contractorCaseId,
+      at: event.at,
+      actor_user_id: event.actor,
+      kind: event.kind,
+      from_status: event.from_status ?? null,
+      to_status: event.to_status,
+      payload: JSON.stringify({}),
+      visible_to_resident: true,
+    });
+  }
+  const orderStart = atLocalTime(1, 13);
+  await insert(client, 'work_orders', {
+    org_id: orgId,
+    case_id: contractorCaseId,
+    number: `AO-${new Date().getFullYear()}-0001`,
+    contractor_org_id: ctx.contractorOrgId,
+    title: 'Felsök och åtgärda kallt element',
+    instructions:
+      'Lufta elementet och kontrollera termostaten. Byt termostat vid behov. Meddela hyresgästen innan besöket.',
+    status: 'offered',
+    planned_start: orderStart,
+    planned_end: new Date(orderStart.getTime() + 2 * 3_600_000),
+    created_by: serviceId,
+  });
+
   /* -------------------------------------------- driftinformation m.m. --- */
+  // Avstängningen läggs på nästa torsdag 09.00–12.00, så att texten stämmer.
+  const shutoffDay = daysUntilWeekday(4, 2);
   const noticeId = await insert(client, 'notices', {
     org_id: orgId,
     kind: 'water_shutoff',
@@ -868,9 +992,9 @@ async function seedActivity(client: pg.PoolClient, ctx: OrgContext, bp: OrgBluep
       '<p>På grund av ett planerat ledningsarbete stängs vattnet av i hela fastigheten torsdag klockan 09.00–12.00.</p><p>Tappa upp det vatten du behöver innan avstängningen. Efter påsläpp kan vattnet vara missfärgat en kort stund – spola tills det blir klart.</p>',
     summary: 'Vattnet är avstängt torsdag 09.00–12.00.',
     status: 'published',
-    starts_at: daysFromNow(3),
-    expected_end_at: new Date(daysFromNow(3).getTime() + 3 * 3_600_000),
-    next_update_at: daysFromNow(3),
+    starts_at: atLocalTime(shutoffDay, 9),
+    expected_end_at: atLocalTime(shutoffDay, 12),
+    next_update_at: atLocalTime(shutoffDay, 12),
     published_at: hoursFromNow(-6),
     contact_info: `Frågor besvaras av kundservice på ${bp.supportPhone}.`,
     requires_acknowledgement: false,
@@ -915,8 +1039,8 @@ async function seedActivity(client: pg.PoolClient, ctx: OrgContext, bp: OrgBluep
 
   /* -------------------------------------------------------- bokning --- */
   const laundryId = ctx.resourceIds[0]!;
-  const laundryStart = new Date(daysFromNow(1));
-  laundryStart.setHours(19, 0, 0, 0);
+  // Tvättpasset ligger 18.00–21.00 svensk tid, inom tvättstugans öppettider.
+  const laundryStart = atLocalTime(1, 18);
   const laundryEnd = new Date(laundryStart.getTime() + 3 * 3_600_000);
   await insert(client, 'bookings', {
     org_id: orgId,

@@ -129,3 +129,31 @@ describe('Format enligt svensk standard', () => {
     expect(formatAmount(1050).replace(/ /g, ' ')).toBe('10,50 kr');
   });
 });
+
+describe('Demodata', () => {
+  it('bokade tider ligger inom resursens öppettider', async () => {
+    // Fångar att seeden räknar i serverns tidszon i stället för svensk tid – ett
+    // fel som annars bara syns som en tvättid efter stängning i gränssnittet.
+    const { withOrg } = await import('../src/db/pool.js');
+    const { createAdminPool } = await import('../src/db/pool.js');
+
+    const admin = createAdminPool();
+    const orgs = await admin.query<{ id: string }>('select id from organisations');
+    await admin.end();
+
+    for (const org of orgs.rows) {
+      const rows = await withOrg({ orgId: org.id }, (client) =>
+        client.query<{ name: string; utanfor: boolean }>(
+          `select r.name,
+                  ((lower(b.slot) at time zone 'Europe/Stockholm')::time < r.opens_at
+                or (upper(b.slot) at time zone 'Europe/Stockholm')::time > r.closes_at) as utanfor
+             from bookings b join resources r on r.id = b.resource_id
+            where b.status in ('reserved','confirmed')`,
+        ),
+      );
+      for (const row of rows.rows) {
+        expect(row.utanfor, `${row.name} är bokad utanför sina öppettider`).toBe(false);
+      }
+    }
+  });
+});

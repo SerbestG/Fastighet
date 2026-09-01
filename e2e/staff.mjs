@@ -32,7 +32,9 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, l
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-page.on('response', (r) => { if (r.status() >= 400 && r.url().includes('/api/')) errors.push(`HTTP ${r.status()} ${new URL(r.url()).pathname}`); });
+// 401 på inloggningen är väntat: lösenordssteget svarar mfa_required innan engångskoden.
+const forvantatSvar = (r) => r.status() === 401 && new URL(r.url()).pathname === '/api/auth/login';
+page.on('response', (r) => { if (r.status() >= 400 && r.url().includes('/api/') && !forvantatSvar(r)) errors.push(`HTTP ${r.status()} ${new URL(r.url()).pathname}`); });
 
 const step = async (label, fn) => {
   process.stdout.write(`• ${label} … `);
