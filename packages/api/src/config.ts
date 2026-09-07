@@ -77,6 +77,19 @@ export const config = {
     statementTimeoutMs: num('DB_STATEMENT_TIMEOUT_MS', 15_000),
   },
 
+  /**
+   * BankID. Utan certifikat och nyckel finns ingen anslutning. Simulatorn är
+   * avsedd för demonstration och test och stängs av i produktion (krav C.2.1).
+   */
+  bankid: {
+    baseUrl: env.BANKID_BASE_URL ?? 'https://appapi2.bankid.com',
+    certPath: env.BANKID_CERT_PATH ?? null,
+    keyPath: env.BANKID_KEY_PATH ?? null,
+    caPath: env.BANKID_CA_PATH ?? null,
+    passphrase: env.BANKID_PASSPHRASE ?? null,
+    simulator: (env.BANKID_SIMULATOR ?? '') === 'true',
+  },
+
   auth: {
     /** Signeringsnyckel för åtkomsttoken. */
     jwtSecret: secret('JWT_SECRET', 'utvecklingsnyckel-endast-for-lokal-korning-1'),

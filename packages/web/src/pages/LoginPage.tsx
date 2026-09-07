@@ -4,6 +4,7 @@ import { ApiError, api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.js';
 import { useI18n } from '../lib/i18n.js';
 import { Banner, Button, Field, Input } from '../components/ui.js';
+import { BankIdSheet } from './BankIdSheet.js';
 
 interface PublicOrg {
   slug: string;
@@ -18,7 +19,8 @@ interface PublicOrg {
 interface LoginMethods {
   password: boolean;
   sso: { name: string } | null;
-  bankid: boolean;
+  /** false när BankID inte är påslaget, annars vilket läge det körs i. */
+  bankid: 'live' | 'simulator' | false;
 }
 
 interface LoginResponse {
@@ -50,6 +52,9 @@ export function LoginPage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [pending, setPending] = useState(false);
   const [methods, setMethods] = useState<LoginMethods | null>(null);
+  const [bankIdOpen, setBankIdOpen] = useState(false);
+  // Endast i simulatorläge: vilket demokonto som ska legitimeras.
+  const [demoPersonalNumber, setDemoPersonalNumber] = useState('');
 
   useEffect(() => {
     api.anonymous
@@ -264,6 +269,39 @@ export function LoginPage() {
           ansluten, så att appen inte utlovar ett inloggningssätt som inte
           fungerar.
         */}
+        {methods?.bankid ? (
+          <>
+            <div className="divider" />
+            {methods.bankid === 'simulator' ? (
+              <Field
+                label="Personnummer för demoinloggning"
+                hint="BankID är inte anslutet här. Ange personnumret för det demokonto som ska legitimeras."
+              >
+                {({ id }) => (
+                  <Input
+                    id={id}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={demoPersonalNumber}
+                    onChange={(event) => setDemoPersonalNumber(event.target.value)}
+                    placeholder="ÅÅÅÅMMDDNNNN"
+                  />
+                )}
+              </Field>
+            ) : null}
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              block
+              disabled={methods.bankid === 'simulator' && demoPersonalNumber.length < 10}
+              onClick={() => setBankIdOpen(true)}
+            >
+              Logga in med BankID
+            </Button>
+          </>
+        ) : null}
+
         {methods?.sso ? (
           <>
             <div className="divider" />
@@ -300,6 +338,15 @@ export function LoginPage() {
           </p>
         ) : null}
       </form>
+
+      {bankIdOpen ? (
+        <BankIdSheet
+          orgSlug={orgSlug}
+          // I simulatorläge behövs ett demonummer. Fältet är tomt i drift.
+          demoPersonalNumber={demoPersonalNumber || undefined}
+          onClose={() => setBankIdOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }

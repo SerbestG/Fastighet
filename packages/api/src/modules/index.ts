@@ -3,6 +3,7 @@ import { registerAccessRoutes } from './access.js';
 import { registerAdminRoutes } from './admin.js';
 import { registerAnalyticsRoutes } from './analytics.js';
 import { registerAuthRoutes } from './auth.js';
+import { registerBankIdRoutes } from './bankid.js';
 import { registerBookingRoutes } from './bookings.js';
 import { registerCaseRoutes } from './cases.js';
 import { registerDocumentRoutes } from './documents.js';
@@ -26,6 +27,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await registerAuthRoutes(app);
   await registerOAuthRoutes(app);
   await registerSsoRoutes(app);
+  await registerBankIdRoutes(app);
   await registerProfileRoutes(app);
   await registerHomeRoutes(app);
   await registerFileRoutes(app);

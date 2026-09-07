@@ -13,6 +13,7 @@ import {
 } from '@hemvist/shared';
 import { config } from '../config.js';
 import { auditWithin } from '../core/audit.js';
+import { bankIdMode } from '../core/bankid.js';
 import { db, requireAuth } from '../core/context.js';
 import {
   generateToken,
@@ -131,7 +132,10 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       loginMethods: {
         password: true,
         sso: loginMethods.sso_enabled ? { name: loginMethods.sso_name ?? 'Federerad inloggning' } : null,
-        bankid: loginMethods.bankid_enabled,
+        // Läget redovisas öppet: en simulator får aldrig framstå som en riktig
+        // BankID-anslutning (krav C.2.1). Är registret påslaget men klienten
+        // saknar både certifikat och simulator finns ingen inloggning att visa.
+        bankid: loginMethods.bankid_enabled && bankIdMode() !== 'off' ? bankIdMode() : false,
       },
     };
   });

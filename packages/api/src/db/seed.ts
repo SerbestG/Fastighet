@@ -4,6 +4,7 @@ import {
   generateTotpSecret,
   hashPassword,
   hashToken,
+  lookupHash,
 } from '../core/crypto.js';
 import { newClientCredentials } from '../core/oauth.js';
 import { createAdminPool } from './pool.js';
@@ -16,6 +17,20 @@ import { createAdminPool } from './pool.js';
  */
 
 export const DEMO_PASSWORD = 'Demolosenord123!';
+
+/**
+ * Påhittat personnummer för demokonton. De fyra sista siffrorna är alltid 0000,
+ * vilket ger fel kontrollsiffra – numret kan alltså inte tillhöra någon verklig
+ * person, men fungerar för att visa BankID-flödet.
+ */
+export function demoPersonalNumber(email: string): string {
+  let hash = 0;
+  for (const char of email) hash = (hash * 31 + char.charCodeAt(0)) % 100_000;
+  const year = 1960 + (hash % 45);
+  const month = String((hash % 12) + 1).padStart(2, '0');
+  const day = String((hash % 28) + 1).padStart(2, '0');
+  return `${year}${month}${day}0000`;
+}
 
 interface SeedResult {
   orgs: { id: string; slug: string }[];
@@ -539,6 +554,9 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
       status: 'active',
       email_verified_at: now,
       external_ref: `KUND-${unit.objectNumber}`,
+      // Personnumret lagras bara som pepprad hash, aldrig i klartext (krav C.2.2).
+      // Demonumren slutar på 0000 och kan därför inte vara någons riktiga nummer.
+      personal_number_hash: lookupHash(demoPersonalNumber(resident.email)),
       password_changed_at: now,
     });
     residentIds[resident.email] = userId;
@@ -689,7 +707,7 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
     { kind: 'property_system', name: 'Vitec Hyra', status: 'requires_configuration', notes: 'Kräver API-nyckel och avtal om dataöverföring innan anslutning.' },
     { kind: 'access_control', name: 'Aptus', status: 'requires_configuration', notes: 'Kräver anslutningsavtal och teknisk konfiguration hos leverantören.' },
     { kind: 'booking', name: 'Aptus bokning', status: 'requires_configuration', notes: 'Aktiveras tillsammans med passersystemet.' },
-    { kind: 'bankid', name: 'BankID', status: 'planned', notes: 'Kräver avtal med en BankID-leverantör samt produktionscertifikat.' },
+    { kind: 'bankid', name: 'BankID', status: 'sandbox', notes: 'Simulator för demonstration. Produktion kräver avtal med en BankID-leverantör och RP-certifikat.' },
     { kind: 'sso', name: 'Microsoft Entra ID', status: 'requires_configuration', notes: 'OpenID Connect. Kräver appregistrering i kundens katalog.' },
     { kind: 'email', name: 'E-postutskick', status: 'requires_configuration', notes: 'SMTP-uppgifter saknas. Utgående e-post köas tills tjänsten konfigurerats.' },
     { kind: 'sms', name: 'SMS-utskick', status: 'planned', notes: 'Kräver avtal med SMS-operatör.' },
