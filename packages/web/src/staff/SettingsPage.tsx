@@ -115,7 +115,11 @@ export function SettingsPage() {
                           onChange={(event) => setForm({ ...form, primary_color: event.target.value })}
                           style={{ width: '3rem', height: '2.75rem', border: 0, background: 'none' }}
                         />
-                        <Input value={form.primary_color} onChange={(event) => setForm({ ...form, primary_color: event.target.value })} />
+                        <Input
+                          aria-label="Primärfärg som hexkod"
+                          value={form.primary_color}
+                          onChange={(event) => setForm({ ...form, primary_color: event.target.value })}
+                        />
                       </div>
                     )}
                   </Field>
@@ -129,7 +133,11 @@ export function SettingsPage() {
                           onChange={(event) => setForm({ ...form, accent_color: event.target.value })}
                           style={{ width: '3rem', height: '2.75rem', border: 0, background: 'none' }}
                         />
-                        <Input value={form.accent_color} onChange={(event) => setForm({ ...form, accent_color: event.target.value })} />
+                        <Input
+                          aria-label="Accentfärg som hexkod"
+                          value={form.accent_color}
+                          onChange={(event) => setForm({ ...form, accent_color: event.target.value })}
+                        />
                       </div>
                     )}
                   </Field>

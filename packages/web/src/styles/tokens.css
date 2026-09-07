@@ -25,7 +25,7 @@
   --text-strong: #16211e;
   --text-default: #2c3733;
   --text-muted: #5f6b66;
-  --text-subtle: #838d88;
+  --text-subtle: #616c67;
   --text-on-brand: #ffffff;
 
   /* Linjer */
@@ -108,7 +108,7 @@
     --text-strong: #f2efe9;
     --text-default: #ddd8d0;
     --text-muted: #a3aba7;
-    --text-subtle: #7f8783;
+    --text-subtle: #949d98;
 
     --border-subtle: #2a3532;
     --border-default: #38443f;
@@ -141,7 +141,7 @@
   --text-strong: #f2efe9;
   --text-default: #ddd8d0;
   --text-muted: #a3aba7;
-  --text-subtle: #7f8783;
+  --text-subtle: #949d98;
   --border-subtle: #2a3532;
   --border-default: #38443f;
   --border-strong: #4c5a55;
