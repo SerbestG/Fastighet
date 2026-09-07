@@ -168,3 +168,42 @@ litet designsystem gav både bättre kontroll och mindre kod att underhålla.
 **Egen implementation av lösenordshash, JWT och TOTP** ovanpå `node:crypto` i
 stället för fler beroenden. Ytan är liten, väl testad och minskar antalet
 tredjepartskomponenter som måste bevakas för sårbarheter.
+
+## Vad tjänsten vilar på
+
+Förteckningen finns för att uppföljningen ska kunna se var beställarens
+information behandlas, och för att ett byte ska kunna meddelas i förväg (krav
+C.9.4).
+
+### Komponenter i driften
+
+| Komponent | Version | Roll |
+| --- | --- | --- |
+| Node.js | 22 LTS | Kör API:et |
+| PostgreSQL | 16 | All data, och kundsepareringen |
+| Filsystem eller objektlagring | — | Uppladdade filer, krypterade i vila |
+
+Tredjepartsberoenden i drift är avsiktligt få: Fastify med tillägg för CORS,
+säkerhetshuvuden, hastighetsbegränsning och filmottagning, `pg` mot databasen,
+och `zod` för validering av indata. Lösenordshash, JWT, TOTP, OAuth 2.0, OpenID
+Connect, BankID-klient och webbpush är byggda på `node:crypto` i stället för på
+fler beroenden.
+
+### Väsentliga underleverantörer
+
+En väsentlig underleverantör är en som behandlar beställarens information eller
+kan påverka tjänstens tillgänglighet.
+
+| Vad | Behandlar | Status |
+| --- | --- | --- |
+| Driftplattform | All data | **Inte upphandlad.** Ska ligga inom EU/EES. |
+| Backuplagring | All data, krypterad | **Inte upphandlad.** Samma krav. |
+| Skanningstjänst för bilagor | Uppladdade filer under granskning | **Inte upphandlad.** Tjänsten fungerar utan, med strukturella kontroller. |
+| E-post och SMS | Mottagaradress och meddelandetext | **Inte upphandlade.** |
+
+Ingen av dem är alltså vald ännu. Det som redan är avgjort är att inget av det
+krävs för att tjänsten ska fungera i grunden: webbpush går utan extern
+leverantör, kalenderfilen skapas lokalt, och kartan ritas ur egna koordinater.
+
+Skulle en underleverantör behandla personuppgifter utanför EU/EES krävs
+beställarens godkännande och en dokumenterad grund för överföringen.
