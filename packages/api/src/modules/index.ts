@@ -12,6 +12,7 @@ import { registerHomeRoutes } from './home.js';
 import { registerMessageRoutes } from './messages.js';
 import { registerMovingRoutes } from './moving.js';
 import { registerNoticeRoutes } from './notices.js';
+import { registerOAuthRoutes } from './oauth.js';
 import { registerOpenApiRoutes } from '../openapi/routes.js';
 import { registerProfileRoutes } from './profile.js';
 import { registerPropertyRoutes } from './properties.js';
@@ -22,6 +23,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await registerHealthRoutes(app);
   await registerOpenApiRoutes(app);
   await registerAuthRoutes(app);
+  await registerOAuthRoutes(app);
   await registerProfileRoutes(app);
   await registerHomeRoutes(app);
   await registerFileRoutes(app);

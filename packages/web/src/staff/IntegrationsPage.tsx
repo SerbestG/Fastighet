@@ -7,6 +7,7 @@ import { useToast } from '../lib/toast.js';
 import { formatDateTime } from '../lib/format.js';
 import { Banner, Button, Field, Input, Pill, QueryBoundary, Sheet, Textarea } from '../components/ui.js';
 import { LinkIcon } from '../components/icons.js';
+import { IntegrationClients } from './IntegrationClients.js';
 
 interface Integration {
   id: string;
@@ -157,6 +158,8 @@ export function IntegrationsPage() {
           </div>
         )}
       </QueryBoundary>
+
+      <IntegrationClients />
 
       {editing ? (
         <Sheet

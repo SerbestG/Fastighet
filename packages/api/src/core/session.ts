@@ -16,6 +16,7 @@ interface SessionRow {
   last_name: string;
   locale: Locale;
   status: string;
+  account_type: string;
   contractor_org_id: string | null;
   expires_at: Date;
   idle_expires_at: Date;
@@ -30,7 +31,7 @@ export async function loadAuthContext(token: string): Promise<AuthContext | null
   return withOrg({ orgId: payload.org, userId: payload.sub }, async (client) => {
     const sessionResult = await client.query<SessionRow>(
       `select s.id as session_id, s.user_id, s.org_id, o.slug as org_slug,
-              u.email, u.first_name, u.last_name, u.locale, u.status, u.contractor_org_id,
+              u.email, u.first_name, u.last_name, u.locale, u.status, u.account_type, u.contractor_org_id,
               s.expires_at, s.idle_expires_at, s.revoked_at
          from sessions s
          join users u on u.id = s.user_id
@@ -53,6 +54,8 @@ export async function loadAuthContext(token: string): Promise<AuthContext | null
       return null;
     }
     if (session.status !== 'active') return null;
+    // Ett icke-personligt konto får bara nås med OAuth 2.0 (krav C.2.12).
+    if (session.account_type === 'service') return null;
 
     const roleResult = await client.query<{ role: Role }>(
       'select role from user_roles where user_id = $1',
@@ -100,6 +103,7 @@ export async function loadAuthContext(token: string): Promise<AuthContext | null
       scopes,
       locale: session.locale,
       tenancyIds: tenancyResult.rows.map((r) => r.tenancy_id),
+      kind: 'user',
     } satisfies AuthContext;
   });
 }

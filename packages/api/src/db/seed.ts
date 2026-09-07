@@ -5,6 +5,7 @@ import {
   hashPassword,
   hashToken,
 } from '../core/crypto.js';
+import { newClientCredentials } from '../core/oauth.js';
 import { createAdminPool } from './pool.js';
 
 /**
@@ -709,6 +710,28 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
   for (const integration of integrations) {
     await insert(client, 'integrations', { org_id: orgId, ...integration });
   }
+
+  // Ett integrationskonto ligger klart så att gränssnittet och API-genomgången
+  // har något att visa. Hemligheten är en demohemlighet och lagras bara hashad.
+  const clientCredentials = await newClientCredentials();
+  const serviceUserId = await insert(client, 'users', {
+    org_id: orgId,
+    email: `${clientCredentials.clientId}@integration.local`,
+    first_name: 'Fastighetssystem',
+    last_name: 'Integration',
+    status: 'active',
+    account_type: 'service',
+  });
+  await insert(client, 'oauth_clients', {
+    org_id: orgId,
+    client_id: clientCredentials.clientId,
+    name: 'Fastighetssystem',
+    description: 'Läser ärenden och för över fastighetsstruktur.',
+    secret_hash: clientCredentials.secretHash,
+    secret_hint: clientCredentials.secretHint,
+    scopes: ['cases:read', 'properties:write'],
+    service_user_id: serviceUserId,
+  });
 
   for (const policy of [
     { entity: 'case', retain_days: 3650, action: 'anonymise', description: 'Ärenden anonymiseras tio år efter avslut.' },

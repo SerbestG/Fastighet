@@ -31,6 +31,15 @@ export interface AuthContext {
   locale: Locale;
   /** Aktiva hyresförhållanden, tomt för personal och entreprenörer. */
   tenancyIds: string[];
+  /**
+   * `user` är en inloggad människa, `client` ett icke-personligt konto som
+   * anropar API:et med OAuth 2.0 (krav A.1.15, C.2.12).
+   */
+  kind: 'user' | 'client';
+  /** Tilldelade scope när anropet kommer från en integration. */
+  oauthScopes?: string[];
+  /** Klientens id när anropet kommer från en integration. */
+  clientId?: string;
 }
 
 declare module 'fastify' {

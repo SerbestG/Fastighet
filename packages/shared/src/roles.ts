@@ -40,7 +40,12 @@ export const STAFF_ROLES: readonly Role[] = [
 /** Roller som endast når entreprenörsportalen. */
 export const CONTRACTOR_ROLES: readonly Role[] = ['contractor'];
 
-export type Surface = 'resident' | 'staff' | 'contractor';
+/**
+ * Vilken yta en inloggning hör hemma i. `integration` används av icke-personliga
+ * konton som loggar in med OAuth 2.0 och aldrig ska nå ett användargränssnitt
+ * (krav C.2.12).
+ */
+export type Surface = 'resident' | 'staff' | 'contractor' | 'integration';
 
 export function surfaceForRole(role: Role): Surface {
   if (RESIDENT_ROLES.includes(role)) return 'resident';

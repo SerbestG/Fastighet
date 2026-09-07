@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { config, instanceId } from './config.js';
 import { AppError } from './core/errors.js';
+import { loadClientAuthContext } from './core/oauth.js';
 import { loadAuthContext } from './core/session.js';
 import { registerRoutes } from './modules/index.js';
 
@@ -72,6 +73,20 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
   });
 
+  // RFC 6749 kräver application/x-www-form-urlencoded på tokenendpointen.
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_request, body, done) => {
+      try {
+        const params = new URLSearchParams(body as string);
+        done(null, Object.fromEntries(params.entries()));
+      } catch (error) {
+        done(error as Error, undefined);
+      }
+    },
+  );
+
   // Spårnings-ID följer med i svaret och i loggarna, så att ett fel som en
   // användare rapporterar går att hitta (avsnitt 26 i kravbilden).
   app.addHook('onRequest', async (request, reply) => {
@@ -85,7 +100,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     const token = header.slice(7).trim();
     if (!token) return;
     try {
-      const auth = await loadAuthContext(token);
+      // Sessionstoken är signerade och känns igen på sin form. Övriga bärartoken
+      // prövas mot integrationskontona (krav A.1.15).
+      const auth = token.split('.').length === 3
+        ? await loadAuthContext(token)
+        : await loadClientAuthContext(token);
       if (auth) request.auth = auth;
     } catch (error) {
       request.log.warn({ err: error }, 'kunde inte läsa sessionen');
