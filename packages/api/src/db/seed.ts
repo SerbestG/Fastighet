@@ -616,15 +616,20 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
       });
     }
 
-    // En inbjudningskod per avtal, för att kunna koppla nya konton till rätt objekt.
-    const code = generateInvitationCode();
-    await insert(client, 'invitations', {
-      org_id: orgId,
-      code_hash: hashToken(code),
-      tenancy_id: tenancyId,
-      role: 'co_resident',
-      expires_at: daysFromNow(180),
-    });
+    // En inbjudningskod för det första avtalet, så att flödet för att skapa ett
+    // konto går att prova. Koden gäller en medboende, och eftersom bara en är
+    // tillåten per bostad läggs den inte på alla avtal — då hade hyresgästens
+    // egen inbjudan varit blockerad överallt (krav B.1.1, B.1.2).
+    if (tenancyIds.length === 1) {
+      const code = generateInvitationCode();
+      await insert(client, 'invitations', {
+        org_id: orgId,
+        code_hash: hashToken(code),
+        tenancy_id: tenancyId,
+        role: 'co_resident',
+        expires_at: daysFromNow(180),
+      });
+    }
   }
 
   /* ------------------------------------------------------- resurser --- */

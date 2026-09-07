@@ -4,6 +4,7 @@ import { openProtectedFile } from '../lib/api.js';
 import { formatAmount, formatDate } from '../lib/format.js';
 import { DefinitionList, EmptyState, QueryBoundary } from '../components/ui.js';
 import { DownloadIcon, HomeIcon, PhoneIcon, MailIcon } from '../components/icons.js';
+import { InviteCoResident } from './InviteCoResident.js';
 
 interface MyHome {
   tenancies: {
@@ -120,6 +121,16 @@ export function MyHomePage() {
                         </div>
                       ))}
                     </div>
+
+                    {/*
+                      Hyresgästen kan bjuda in en medboende till appen (krav
+                      B.1.1). Antalet är begränsat till en, vilket servern
+                      kontrollerar (krav B.1.2).
+                    */}
+                    <InviteCoResident
+                      tenancyId={tenancy.id}
+                      alreadyInvited={residents.some((resident) => resident.role === 'co_resident')}
+                    />
                   </section>
                 ) : null}
 

@@ -253,3 +253,39 @@ describe('Hyresgästens resa', () => {
     expect(caseNumber).toMatch(/^\d{4}-\d{5}$/);
   });
 });
+
+describe('Medboende', () => {
+  /**
+   * Hyresgästen bjuder själv in en medboende, och bara en (krav B.1.1, B.1.2).
+   */
+  it('hyresgästen kan bjuda in en medboende', async () => {
+    const other = await login(ACCOUNTS.orgA.otherTenant);
+    const result = await post<{ code: string; expiresInDays: number }>(
+      other,
+      '/api/me/invite-co-resident',
+      { email: 'ny.medboende@example.com' },
+    );
+    expect(result.status).toBe(200);
+    expect(result.body.code).toMatch(/^[A-Z0-9-]{6,}$/);
+    expect(result.body.expiresInDays).toBe(30);
+  });
+
+  it('bara en medboende per bostad', async () => {
+    const other = await login(ACCOUNTS.orgA.otherTenant);
+    const second = await post(other, '/api/me/invite-co-resident', {
+      email: 'ytterligare@example.com',
+    });
+    expect(second.status).toBe(409);
+  });
+
+  it('en hyresgäst kan inte bjuda in till någon annans bostad', async () => {
+    const other = await login(ACCOUNTS.orgA.otherTenant);
+    const someoneElse = await login(ACCOUNTS.orgA.tenant);
+    const home = await get<{ tenancies: { id: string }[] }>(someoneElse, '/api/my-home');
+    const foreignTenancy = home.body.tenancies[0]?.id;
+    expect(foreignTenancy).toBeDefined();
+
+    const result = await post(other, '/api/me/invite-co-resident', { tenancyId: foreignTenancy });
+    expect(result.status).toBe(404);
+  });
+});
