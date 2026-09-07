@@ -5,6 +5,10 @@ import { deliverNotice } from '../modules/notices.js';
 import { notify } from '../core/notify.js';
 import { resolveAudienceUsers } from '../core/audience.js';
 import { WebPushError, sendPush, vapidKeys } from '../core/webpush.js';
+import { SYNC_DATASETS, backoffSeconds, runDataset } from '../core/sync.js';
+import { resolveSecret } from '../core/secrets.js';
+import { APPLIERS } from '../integrations/apply.js';
+import { propertySystemAdapter } from '../integrations/registry.js';
 
 /**
  * Bakgrundsjobb.
@@ -362,6 +366,124 @@ const deliverWebPush: Job = {
   },
 };
 
+
+/**
+ * Hämtar ändringar från fastighetssystemet (krav A.1.8, C.3.5, C.3.10).
+ *
+ * Varje datamängd har egen fördröjning efter fel. Saknas anslutning görs
+ * ingenting alls – uppgifterna behåller då sin gamla tidsstämpel och visas som
+ * inaktuella i stället för att framstå som färska.
+ */
+const syncPropertySystem: Job = {
+  name: 'sync_property_system',
+  run: async (log) =>
+    forEachOrg(async (orgId) =>
+      withOrg({ orgId }, async (client) => {
+        const { adapter } = await propertySystemAdapter(client, async (integrationId) => {
+          const row = await client.query<{ secret_ref: string | null }>(
+            'select secret_ref from integrations where id = $1',
+            [integrationId],
+          );
+          return resolveSecret(row.rows[0]?.secret_ref);
+        });
+        if (!adapter) return 0;
+
+        let applied = 0;
+        for (const dataset of SYNC_DATASETS) {
+          // Datamängder som väntar på sin fördröjning hoppas över.
+          const due = await client.query<{ ready: boolean }>(
+            `select coalesce(next_attempt_at is null or next_attempt_at <= now(), true) as ready
+               from sync_datasets where org_id = $1 and dataset = $2`,
+            [orgId, dataset],
+          );
+          if (due.rowCount && due.rows[0]!.ready === false) continue;
+
+          const outcome = await runDataset(client, orgId, dataset, adapter, (c, record) =>
+            APPLIERS[dataset](c, orgId, record),
+          );
+          applied += outcome.applied;
+          if (!outcome.ok) {
+            log.warn({ dataset, error: outcome.error }, 'synkronisering misslyckades');
+          } else if (outcome.skipped > 0) {
+            log.warn({ dataset, skipped: outcome.skipped }, 'poster hoppades över vid synkronisering');
+          }
+        }
+        return applied;
+      }),
+    ),
+};
+
+/**
+ * Lämnar köade ändringar till fastighetssystemet (krav B.1.27, C.3.11).
+ *
+ * Raden ligger kvar tills källsystemet kvitterat. En störning gör alltså inte
+ * att en ändring tappas – den skickas när systemet svarar igen.
+ */
+const flushIntegrationOutbox: Job = {
+  name: 'flush_integration_outbox',
+  run: async (log) =>
+    forEachOrg(async (orgId) =>
+      withOrg({ orgId }, async (client) => {
+        const due = await client.query<{
+          id: string;
+          kind: string;
+          payload: Record<string, unknown>;
+          attempts: number;
+        }>(
+          `select id, kind, payload, attempts from integration_outbox
+            where status = 'pending' and next_attempt_at <= now()
+            order by created_at limit 50`,
+        );
+        if (!due.rowCount) return 0;
+
+        const { adapter } = await propertySystemAdapter(client, async (integrationId) => {
+          const row = await client.query<{ secret_ref: string | null }>(
+            'select secret_ref from integrations where id = $1',
+            [integrationId],
+          );
+          return resolveSecret(row.rows[0]?.secret_ref);
+        });
+
+        if (!adapter) {
+          // Utan anslutning markeras raderna, i stället för att räknas som fel.
+          await client.query(
+            `update integration_outbox set status = 'blocked_no_integration', updated_at = now()
+              where id = any($1::uuid[])`,
+            [due.rows.map((r) => r.id)],
+          );
+          return 0;
+        }
+
+        let sent = 0;
+        for (const row of due.rows) {
+          try {
+            await adapter.pushChange(row.kind, row.payload);
+            await client.query(
+              `update integration_outbox set status = 'sent', sent_at = now(),
+                      attempts = attempts + 1, updated_at = now() where id = $1`,
+              [row.id],
+            );
+            sent += 1;
+          } catch (error) {
+            const attempts = row.attempts + 1;
+            await client.query(
+              `update integration_outbox
+                  set status = case when $2 >= 8 then 'failed' else 'pending' end,
+                      attempts = $2,
+                      last_error = $3,
+                      next_attempt_at = now() + make_interval(secs => $4),
+                      updated_at = now()
+                where id = $1`,
+              [row.id, attempts, (error as Error).message.slice(0, 500), backoffSeconds(attempts)],
+            );
+          }
+        }
+        if (sent) log.info({ sent }, 'ändringar lämnade till fastighetssystemet');
+        return sent;
+      }),
+    ),
+};
+
 const JOBS: Job[] = [
   publishScheduledNotices,
   unpublishExpiredNotices,
@@ -372,6 +494,8 @@ const JOBS: Job[] = [
   revokeExpiredSessions,
   applyRetention,
   deliverWebPush,
+  syncPropertySystem,
+  flushIntegrationOutbox,
 ];
 
 export function startScheduler(log: FastifyBaseLogger): () => void {

@@ -8,6 +8,7 @@ import { formatDateTime } from '../lib/format.js';
 import { Banner, Button, Field, Input, Pill, QueryBoundary, Sheet, Textarea } from '../components/ui.js';
 import { LinkIcon } from '../components/icons.js';
 import { IntegrationClients } from './IntegrationClients.js';
+import { SyncStatus } from './SyncStatus.js';
 
 interface Integration {
   id: string;
@@ -158,6 +159,8 @@ export function IntegrationsPage() {
           </div>
         )}
       </QueryBoundary>
+
+      <SyncStatus />
 
       <IntegrationClients />
 

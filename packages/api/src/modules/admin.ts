@@ -13,6 +13,8 @@ import { db, requirePermission } from '../core/context.js';
 import { generateInvitationCode, hashPassword, hashToken } from '../core/crypto.js';
 import { badRequest, conflict, notFound } from '../core/errors.js';
 import { parse } from '../core/validate.js';
+import { secretAvailable } from '../core/secrets.js';
+import { DATASET_LABELS, SYNC_DATASETS, freshness, readStates } from '../core/sync.js';
 
 /**
  * Administration: användare, roller, organisationsinställningar, integrationer,
@@ -267,12 +269,50 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
 
   /* ------------------------------------------------- integrationer --- */
 
+  /**
+   * Hur aktuella uppgifterna från verksamhetssystemet är (krav C.3.10, C.3.13).
+   * Vyn säger rakt ut när en datamängd aldrig hämtats eller är för gammal.
+   */
+  app.get('/api/staff/integrations/sync', async (request) => {
+    requirePermission(request, 'integration:read');
+    return db(request, async (client) => {
+      const connected = await client.query<{ status: string }>(
+        `select status from integrations where kind = 'property_system' limit 1`,
+      );
+      const isConnected = ['connected', 'sandbox'].includes(connected.rows[0]?.status ?? '');
+      const states = await readStates(client);
+      const outbox = await client.query<{ status: string; count: number }>(
+        'select status, count(*)::int as count from integration_outbox group by status',
+      );
+
+      return {
+        connected: isConnected,
+        datasets: SYNC_DATASETS.map((dataset) => {
+          const state = states.get(dataset) ?? null;
+          return {
+            dataset,
+            label: DATASET_LABELS[dataset],
+            freshness: freshness(state, isConnected),
+            lastSuccessAt: state?.lastSuccessAt ?? null,
+            lastAttemptAt: state?.lastAttemptAt ?? null,
+            lastError: state?.lastError ?? null,
+            consecutiveFailures: state?.consecutiveFailures ?? 0,
+            staleAfterMinutes: state?.staleAfterMinutes ?? 180,
+          };
+        }),
+        outbox: Object.fromEntries(outbox.rows.map((r) => [r.status, r.count])),
+      };
+    });
+  });
+
+
   app.get('/api/staff/integrations', async (request) => {
     requirePermission(request, 'integration:read');
     return db(request, async (client) => {
       const result = await client.query(
         `select id, kind, name, status, base_url, notes, config, last_check_at, last_ok_at,
                 last_error, updated_at,
+                secret_ref,
                 (secret_ref is not null) as has_credentials
            from integrations order by
              case status when 'connected' then 0 when 'sandbox' then 1
@@ -289,9 +329,12 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       );
       const stats = new Map(events.rows.map((r) => [r.integration_id, r]));
       return {
-        integrations: result.rows.map((row) => ({
+        integrations: result.rows.map(({ secret_ref, ...row }) => ({
           ...row,
-          // Hemligheter lämnar aldrig servern – bara om de finns eller inte.
+          // Hemligheter lämnar aldrig servern – bara om referensen finns och om
+          // den faktiskt går att slå upp i driftmiljön just nu.
+          has_credentials: Boolean(secret_ref),
+          credentials_resolvable: secretAvailable(secret_ref),
           config: row.config,
           recentActivity: stats.get(row.id) ?? { calls: 0, failures: 0, last_call_at: null },
         })),
