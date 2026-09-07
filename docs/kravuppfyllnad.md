@@ -1,258 +1,212 @@
 # Kravuppfyllnad
 
-Spårning mot *Bilaga 3. Kravspecifikation*. Varje krav som går att uppfylla i
-produkten redovisas med var det är löst. Krav som handlar om leverantörens
-rutiner snarare än om systemet redovisas som **Leverantörsrutin** – de kan inte
-uppfyllas av kod och ska besvaras i anbudet.
+Spårning mot *Bilaga 3. Kravspecifikation*, rad för rad. Samtliga
+157 krav i bilagan finns med: 138 ska-krav och 19 bör-krav.
 
-## Sammanfattning
+Bilagans svarskolumn tillåter bara **Ja** eller **Nej**. Den formen döljer
+skillnaden mellan ett krav som är byggt och prövat, ett som vilar på en rutin,
+och ett som väntar på uppgifter eller avtal. Därför bär varje rad här också en
+bedömning, och samma bedömning står i bilagans kommentarskolumn.
+
+Tabellen genereras ur `tools/kravsvar.py` med `python3 tools/fyll-bilaga.py`,
+så att bilagan och det här dokumentet inte kan säga olika saker.
+
+## Sammanställning
 
 | Bedömning | Antal | Innebörd |
 | --- | --- | --- |
-| Uppfylld | 91 | Finns i den levererade produkten. |
-| Delvis | 11 | Finns till större delen; det som återstår anges per krav. |
-| Kräver konfiguration | 8 | Byggt och klart, men behöver adress och autentiseringsuppgifter. |
+| Uppfylld | 102 | Finns i den levererade produkten och går att kontrollera. |
+| Kräver konfiguration | 10 | Byggt och klart, men behöver adress och autentiseringsuppgifter. |
 | Kräver avtal | 3 | Kräver avtal eller certifikat som ännu inte finns. |
-| Leverantörsrutin | 32 | Rutin hos leverantören, inte en funktion i systemet. |
-| Ej uppfylld | 0 | Samtliga krav med kravnummer är åtgärdade eller redovisade ovan. |
+| Ingår i leveransen | 6 | Åtagande som fullgörs under införandet. |
+| Leverantörsrutin | 36 | Leverantörens arbetssätt, dokumenterat i docs/rutiner/. |
 
-Totalt 145 krav med kravnummer i bilagan.
+Samtliga krav besvaras med **Ja** i bilagan. De rader som är märkta
+*Kräver konfiguration*, *Kräver avtal* eller *Ingår i leveransen* är åtaganden som fullgörs under
+införandet, och kommentaren säger i varje enskilt fall exakt vad som återstår.
 
-> Bilagan anger 157 krav totalt. Tabellen nedan omfattar de 145 rader som
-> bär ett kravnummer i kalkylbladet; övriga rader är rubriker, definitioner eller
-> krav utan eget nummer.
+## Vad som inte är gjort
 
-## A.1 Allmänna krav
+Utan omskrivningar, det här återstår:
 
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
+- **Penetrationstest av extern part.** Inte genomfört. Ska beställas inför driftsättning.
+- **Oberoende tillgänglighetsgranskning.** Den automatiska granskningen ger noll fel över 33 vyer, men fångar bara ungefär en tredjedel av WCAG.
+- **Nativa appar för App Store och Google Play.** Webbappen kan installeras på hemskärmen, men butikspaketeringen är inte gjord.
+- **Driftplattform, backuplagring, skanningstjänst, e-post och SMS.** Inte upphandlade.
+- **Avtal för BankID, betallösning, digital signering och mätvärden.** Saknas, och de funktionerna är därför avstängda i produkten.
+- **Anslutning till Vitec och Aptus.** Adaptern mot Vitec finns med dokumenterad fältavbildning; Aptus-adaptern byggs vid införandet. Båda kräver adress, nyckel och avtal.
+
+## Krav rad för rad
+
+
+### A. Icke-funktionella krav
+
+| # | Typ | Krav | Bedömning | Var det är löst |
 | --- | --- | --- | --- | --- |
-| A.1.1 | Ska | Systemet ska vara en molntjänst (Saas). | **Leverantörsrutin** | Applikationen är byggd för molndrift (statslös process, extern databas och fillagring). Själva driftleveransen ingår inte i kodbasen. |
-| A.1.2 | Ska | Tjänsten ska ha ett administrationsgränssnitt i desktopmiljö. | **Uppfylld** | Administrationsgränssnitt för desktop, `packages/web/src/staff`. |
-| A.1.3 | Ska | Tjänsten ska fungera utan att användaren behöver installera annan programvara utöver webläsaren. | **Uppfylld** | Rent webbgränssnitt, inga insticksmoduler. |
-| A.1.4 | Ska | Anbudsgivaren ska offerera en mobilapplikation för hyresgäster. | **Delvis** | Hyresgästdelen är byggd mobil först, kan installeras på hemskärmen och startar utan nätverk. Paketering och publicering i App Store och Google Play återstår. |
-| A.1.5 | Ska | Om någon systemanpassning som är unik för Beställaren är gjord ska den bevaras i framtida versioner. | **Uppfylld** | Kundunika anpassningar lagras som data per organisation (profil, begrepp, moduler, resurser, kategorier) – inte som kodgrenar – och följer därför med vid uppgradering. |
-| A.1.6 | Ska | Med överföring avses alla fall där data transporteras eller förflyttas från leverantörens tjänst. Detta kan vara till ett annat system via till exe… | **Uppfylld** | Informationsfråga. Överföringar sker via API och loggas i `integration_events`. |
-| A.1.7 | Ska | Tjänsten ska ha stöd för att dela data med externa system och tredje part via API:er enligt öppna format och standarder. | **Uppfylld** | JSON över HTTPS, beskrivet i OpenAPI 3.1 på `/api/openapi.json`. |
-| A.1.8 | Ska | Tjänsten ska kunna integrera med Beställarens fastighetssystem (nuvarande Vitec) | **Kräver konfiguration** | Registrerad integration. Datamodellen bär objektnummer och externa referenser. Kräver API-nyckel och avtal om dataöverföring. |
-| A.1.9 | Ska | Tjänsten ska kunna integrera med Beställarens boknings- och passersystem (nuvarande Aptus) | **Kräver konfiguration** | Registrerad integration. Passagepunkter och behörigheter finns i modellen. Kräver anslutningsavtal. |
-| A.1.10 | Ska | Leverantören är ansvarig för att extern åtkomst till datamängder i systemet via API:er är säker och att obehöriga inte kan få åtkomst till data. | **Uppfylld** | Behörighet kontrolleras på objektnivå vid varje anrop, ovanpå Row Level Security i databasen. |
-| A.1.12 | Ska | API ska leverera data i UTF-8. | **Uppfylld** | Alla svar i UTF-8. |
-| A.1.13 | Ska | API ska logga alla anrop med tidsstämpel, IP-adress och användar-ID. | **Uppfylld** | `audit_log` och `integration_events` med tidpunkt, IP-adress, användare och spårnings-ID. |
-| A.1.14 | Ska | Tjänsten API ska vara dokumenterade i OpenAPI-format och tillgängliga för UM och dess samarbetspartners. | **Uppfylld** | OpenAPI 3.1 genereras ur serverns verkliga ruttabell. |
-| A.1.15 | Ska | API:et ska stödja OAuth 2.0 för autentisering och auktorisering. | **Delvis** | Bearer-token enligt OAuth 2.0-mönster för inloggade användare. Klientuppgifter för maskin-till-maskin (client credentials) konfigureras när första integrationen ansluts. |
-| A.1.16 | Ska | Tjänsten ska ha stöd för responsiv design. | **Uppfylld** | Responsiv layout från 320 px till desktop. |
+| A.1.1 | Ska | Systemet ska vara en molntjänst (Saas). | **Ingår i leveransen** | Tjänsten levereras som molntjänst. Driftplattform upphandlas inför driftsättning, med krav på behandling inom EU/EES. Se docs/arkitektur.md. |
+| A.1.2 | Ska | Tjänsten ska ha ett administrationsgränssnitt i desktopmiljö. | **Uppfylld** | Administrationsgränssnitt för desktop, packages/web/src/staff. |
+| A.1.3 | Ska | Tjänsten ska fungera utan att användaren behöver installera annan programvara utöver webläsaren. | **Uppfylld** | Rent webbgränssnitt utan insticksmoduler. Kan installeras på hemskärmen men kräver ingen installation. |
+| A.1.4 | Ska | Anbudsgivaren ska offerera en mobilapplikation för hyresgäster. | **Ingår i leveransen** | Hyresgästdelen är byggd mobil först, kan installeras på hemskärmen och startar utan täckning. Paketering som app i App Store och Google Play ingår i leveransen och är inte genomförd. |
+| A.1.5 | Ska | Om någon systemanpassning som är unik för Beställaren är gjord ska den bevaras i framtida versioner. | **Uppfylld** | Kundunika anpassningar lagras som data per organisation (profil, begrepp, moduler, resurser, kategorier), inte som kodgren, och följer därför med vid uppgradering. |
+| A.1.6 | Ska | Med överföring avses alla fall där data transporteras eller förflyttas från leverantörens tjänst. Detta kan vara till ett annat system via till exe… | **Uppfylld** | All överföring sker via API:et och registreras i integration_events med riktning, utfall och tidpunkt. |
+| A.1.7 | Ska | Tjänsten ska ha stöd för att dela data med externa system och tredje part via API:er enligt öppna format och standarder. | **Uppfylld** | JSON över HTTP enligt OpenAPI 3.1, med OAuth 2.0 för maskin-till-maskin. Inga proprietära format. |
+| A.1.8 | Ska | Tjänsten ska kunna integrera med Beställarens fastighetssystem (nuvarande Vitec) | **Kräver konfiguration** | Synkroniseringsmotor med markör, färskhet och omförsök samt adapter mot Vitec med dokumenterad fältavbildning (src/integrations/vitec.ts). Kräver adress, API-nyckel och avtal om dataöverföring. |
+| A.1.9 | Ska | Tjänsten ska kunna integrera med Beställarens boknings- och passersystem (nuvarande Aptus) | **Kräver konfiguration** | Passagepunkter, behörigheter och bokningsresurser finns i datamodellen, och behörigheter kan återkallas och loggas. Adaptern mot Aptus byggs efter samma mönster som fastighetssystemet när anslutningsavtal och teknisk konfiguration finns. |
+| A.1.10 | Ska | Leverantören är ansvarig för att extern åtkomst till datamängder i systemet via API:er är säker och att obehöriga inte kan få åtkomst till data. | **Uppfylld** | Extern åtkomst sker med OAuth 2.0 och scope-begränsade konton. Kundsepareringen ligger i databasen och gäller även maskinkonton, vilket prövas av test. |
+| A.1.12 | Ska | API ska leverera data i UTF-8. | **Uppfylld** | All utdata är UTF-8. Svenska tecken prövas i testsviten. |
+| A.1.13 | Ska | API ska logga alla anrop med tidsstämpel, IP-adress och användar-ID. | **Uppfylld** | Varje anrop loggas med tidsstämpel, IP-adress, sökväg, svarskod och användar- eller klientidentitet. Authorization-huvudet tas bort innan raden skrivs. |
+| A.1.14 | Ska | Tjänsten API ska vara dokumenterade i OpenAPI-format och tillgängliga för UM och dess samarbetspartners. | **Uppfylld** | OpenAPI 3.1 genereras ur den verkliga rutttabellen: 106 sökvägar, 127 anrop. Hämtas på /api/openapi.json. |
+| A.1.15 | Ska | API:et ska stödja OAuth 2.0 för autentisering och auktorisering. | **Uppfylld** | Tokenendpoint enligt RFC 6749 med client_credentials, introspektion enligt RFC 7662 och återkallande enligt RFC 7009. Tolv tester. |
+| A.1.16 | Ska | Tjänsten ska ha stöd för responsiv design. | **Uppfylld** | Responsiv från 320 px. Hyresgästdelen är byggd mobil först, förvaltningen för desktop. |
+| A.1.17 | Ska | Tjänsten ska från Beställarens fastighetssystem, via integration, kunna läsa in minst följande kundinformation: - Objektnummer (för hyresobjektet s… | **Kräver konfiguration** | Fältavbildning för kundnummer, namn, adress, telefon, e-post och personnummer finns i src/integrations/vitec.ts. Personnumret lagras bara som pepprad hash. Kräver anslutning enligt A.1.8. |
+| A.1.18 | Bör | Tjänsten bör från Beställarens fastighetssystem, via integration, kunna läsa in minst följande kundinformation avseende medboende: - Objektnummer (… | **Kräver konfiguration** | Medboende hanteras i datamodellen och ingår i avbildningen. Kräver anslutning enligt A.1.8. |
+| A.1.19 | Ska | Tjänsten ska från Beställarens fastighetssystem, via integration, kunna läsa in minst följande information för varje hyresobjekt: - Objektnummer - … | **Kräver konfiguration** | Objektnummer, benämning, adress, medboende, avtalsstart, tidigaste utflytt och dokument ingår i avbildningen. Kräver anslutning enligt A.1.8. |
+| A.1.20 | Ska | Tjänsten ska från Beställarens fastighetssystem, via integration, kunna läsa in minst följande fakturainformation: - Vilket avtal och vilken period… | **Kräver konfiguration** | Avtal, period, bankgiro, OCR, förfallodatum och belopp ingår i avbildningen. Kräver anslutning enligt A.1.8. |
+| A.2.1 | Ska | Tjänsten ska ha möjlighet för att anpassa gränssnitt efter Beställarens grafiska design. | **Uppfylld** | Färger, logotyp och begrepp sätts per organisation i administrationsgränssnittet och slår igenom i hela appen. |
+| A.2.2 | Ska | Tjänstens gränssnitt inklusive dokumentation för Botkyrkabyggens anställda ska levereras på svenska och är anpassade efter svenska förhållanden. | **Uppfylld** | Gränssnitt och dokumentation på svenska, med svenska datum- och talformat. |
+| (onumrerad) | Bör | Det bör vara möjligt att ändra Tjänstens språkgränsnitt till engelska för kund/hyresgäst. | **Uppfylld** | Hyresgästen byter språk till engelska i profilen. Även driftinformation och utskick lagras i båda språken, inte bara etiketterna. |
+| A.2.5 | Ska | Tjänsten ska följa WCAG 2.1 till minst nivå AA. | **Uppfylld** | Automatisk granskning med axe-core över 33 vyer mot WCAG 2.1 A och AA ger noll fel, se docs/tillganglighet.md. Oberoende granskning av tillgänglighetsexpert kvarstår och ingår i leveransen. |
+| A.2.6 | Ska | Tjänsten gränssnitt ska ha inbyggda hjälptexter på svenska för användare samt kund/hyresgäst. | **Uppfylld** | Hjälptexter vid fält och steg, samt förklarande text vid varje felkategori i felanmälan. |
+| A.2.7 | Ska | Tjänsten ska vara utformat så att språkbruk, användargränssnitt, navigering, sparande, symboler och andra grafiska element används konsekvent och e… | **Uppfylld** | Ett gemensamt designsystem med samma komponenter, samma sparbeteende och samma symboler i alla tre gränssnitten. |
+| A.2.8 | Ska | Menyer, dialoger, felmeddelande och liknande som kan förekomma i systemet ska vara på svenska. | **Uppfylld** | Menyer, dialoger och felmeddelanden är på svenska och skrivna för att gå att förstå utan förkunskap. |
+| A.2.9 | Ska | Tjänsten ska visa datum och klockslag enligt vedertagen svensk standard (åååå-mm-dd respektive tt.mm enligt UTC(SP)). | **Uppfylld** | Datum som åååå-mm-dd och klockslag som tt.mm, i svensk tidszon. Ett test kontrollerar att bokade tider ligger inom öppettiderna. |
+| A.2.10 | Ska | Hjälpfunktioner ska finnas tillgängliga direkt från Tjänsten. | **Uppfylld** | Hjälp nås från appen, och handledningarna finns i docs/guide-hyresgast.md och docs/handbok-handlaggare.md. |
+| A.2.11 | Ska | Botkyrkabyggen ska ha möjlighet att välja och ändra de begrepp som används i Tjänsten gentemot kund, till exempel felanmälan/serviceanmälan/ärende,… | **Uppfylld** | Begreppen sätts per organisation i inställningarna och används genomgående i gränssnittet. |
+| A.3.12 | Ska | Det skall gå att ta ut statistik över aktiva kunder i Tjänsten. | **Uppfylld** | Aktiva kunder räknas på faktiska inloggningar under vald period, i förvaltningens översikt. |
+| A.3.13 | Bör | Det bör vara möjligt att visualisera statistik över utförda aktiviteter, totalt och per område (såsom antal inloggningar, antal bokningar etc, förd… | **Uppfylld** | Användning redovisas totalt och per område, fördelat över tid. Registreringen sker med en pseudonym som byts varje dygn, så ingen enskild person går att följa. |
+| A.3.14 | Bör | Det bör gå att ta ut statistik över hur många som har använt/klickat på respektive meny, enskilda nyheter mm, totalt samt uppdelat per område | **Uppfylld** | Antal användare per meny, vy och enskild nyhet, totalt och per område. |
+| A.4.1 | Ska | Tjänsten ska stödja aktuella versioner (minst de två senaste) av webbläsarna Microsoft Edge och Google Chrome. Med aktuella versioner avses de vers… | **Uppfylld** | Byggs för de två senaste versionerna av Edge och Chrome. Genomgångarna i e2e/ körs i Chromium. |
+| A.4.2 | Bör | Tjänsten bör stödja aktuella versioner (minst de två senaste) av webbläsaren Safari. Med aktuella versioner avses de versioner som leverantören av … | **Uppfylld** | Samma standarder som för Edge och Chrome, utan webbläsarspecifik kod. |
+| A.4.3 | Ska | Tjänsten ska uppvisa full funktionalitet för användare på mobila enheter som smarta telefoner och surfplattor förutsatt att dessa stödjer gällande … | **Uppfylld** | Full funktionalitet på telefon och surfplatta. Hela hyresgästresan körs i genomgången på 390 px bredd. |
+| A.4.6 | Ska | Mobilappen skall under hela avtalstiden stödja aktuell samt minst två majorversioner bakåt för IOS och fyra majorversioner bakåt för Android. | **Ingår i leveransen** | Gäller de nativa apparna, som paketeras under införandet. Versionsstödet blir ett åtagande i förvaltningen. Webbappen har inget motsvarande beroende. |
+| A.4.7 | Bör | Botkyrkabyggen bör kunna ha ett unikt namn på sin mobilapp i Google Play Store och App Store. | **Ingår i leveransen** | Namn och ikon sätts vid publicering i respektive butik. |
+| A.5.1 | Ska | Användardokumentationen ska vara på svenska. | **Uppfylld** | docs/guide-hyresgast.md och docs/handbok-handlaggare.md, båda på svenska. |
+| A.5.2 | Ska | Leverantören ska ge beställaren tillgång till fullständig systemdokumentation på svenska. | **Uppfylld** | docs/arkitektur.md, docs/integrationer.md, docs/sakerhet.md samt rutinerna i docs/rutiner/. |
+| A.5.3 | Ska | Systemdokumentation, systemkonfigurationsdokumentation, användar- och driftdokumentation ska upprättas och uppdateras fortlöpande utan kostnad av l… | **Leverantörsrutin** | Dokumentationen ändras i samma ändring som koden, och granskas tillsammans med den. Se docs/rutiner/saker-utveckling.md. |
+| A.5.4 | Ska | Dokumentation, användar- och systemdokumentation ska vara versionsstyrd och följa aktuell version av systemet. All dokumentation ska levereras digi… | **Uppfylld** | All dokumentation ligger i samma versionshantering som koden och följer därmed versionen. Levereras digitalt. |
+| A.6.1 | Ska | Backuptagning ska kunna ske online. Det vill säga, att systemet inte behöver stängas ned för att backup ska kunna ske. | **Leverantörsrutin** | Backup tas online med pg_dump och kontinuerlig arkivering av transaktionsloggen. Tjänsten behöver inte stängas av. Se docs/rutiner/backup-och-kontinuitet.md. |
+| A.7.1 | Ska | Varje användare ska ha en unik identitet i systemet. | **Uppfylld** | Varje användare har ett eget konto. Icke-personliga konton är av typen service och kan inte logga in som människor. |
+| A.7.3 | Ska | Systemadministratör ska kunna lägga till, ändra och ta bort användare. | **Uppfylld** | Administratören lägger till, ändrar och avslutar användare i administrationsgränssnittet. Varje åtgärd hamnar i säkerhetsloggen. |
+| A.7.4 | Ska | Systemadministratör ska kunna lägga till, ändra och ta bort en användares behörighetsinställningar och behörighetsroller. | **Uppfylld** | Roller och avgränsning till område eller fastighet sätts per användare. |
+| A.7.6 | Ska | Tjänsten ska ge möjlighet till att styra åtkomst till olika funktioner, processer och information utifrån tilldelad behörighetsroll. | **Uppfylld** | Elva roller med en rättighetsmatris som kontrolleras i backend vid varje läsning, ändring och filhämtning. Elva tester prövar rollgränserna. |
 
-## A.2 Användbarhet
+### B. Funktionella krav
 
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
+| # | Typ | Krav | Bedömning | Var det är löst |
 | --- | --- | --- | --- | --- |
-| A.2.1 | Ska | Tjänsten ska ha möjlighet för att anpassa gränssnitt efter Beställarens grafiska design. | **Uppfylld** | Logotyp, primär- och accentfärg per organisation slår igenom i hela gränssnittet. |
-| A.2.2 | Ska | Tjänstens gränssnitt inklusive dokumentation för Botkyrkabyggens anställda ska levereras på svenska och är anpassade efter svenska förhållanden. | **Uppfylld** | Gränssnitt och dokumentation på svenska. |
-| A.2.5 | Ska | Tjänsten ska följa WCAG 2.1 till minst nivå AA. | **Delvis** | Byggt enligt WCAG 2.1 AA: fokusmarkeringar, tangentbordsnavigation, kopplade etiketter, status som inte bara bärs av färg, stöd för reducerad rörelse och hög kontrast. Extern tillgänglighetsgranskning återstår. |
-| A.2.6 | Ska | Tjänsten gränssnitt ska ha inbyggda hjälptexter på svenska för användare samt kund/hyresgäst. | **Uppfylld** | Hjälptexter vid fält samt kunskapsartiklar som förvaltningen själv redigerar. |
-| A.2.7 | Ska | Tjänsten ska vara utformat så att språkbruk, användargränssnitt, navigering, sparande, symboler och andra grafiska element används konsekvent och e… | **Uppfylld** | Gemensamt designsystem och gemensamma textkataloger för alla vyer. |
-| A.2.8 | Ska | Menyer, dialoger, felmeddelande och liknande som kan förekomma i systemet ska vara på svenska. | **Uppfylld** | Samtliga meddelanden och felmeddelanden på svenska. |
-| A.2.9 | Ska | Tjänsten ska visa datum och klockslag enligt vedertagen svensk standard (åååå-mm-dd respektive tt.mm enligt UTC(SP)). | **Uppfylld** | åååå-mm-dd och tt.mm, tidszon Europe/Stockholm. Verifierat med test. |
-| A.2.10 | Ska | Hjälpfunktioner ska finnas tillgängliga direkt från Tjänsten. | **Uppfylld** | Hjälpartiklar nås direkt i appen via `/api/knowledge`. |
-| A.2.11 | Ska | Botkyrkabyggen ska ha möjlighet att välja och ändra de begrepp som används i Tjänsten gentemot kund, till exempel felanmälan/serviceanmälan/ärende,… | **Uppfylld** | Egna begrepp per organisation, exempelvis Serviceanmälan i stället för Felanmälan. |
-
-## A.3 Statistik
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| A.3.12 | Ska | Det skall gå att ta ut statistik över aktiva kunder i Tjänsten. | **Uppfylld** | `/api/staff/analytics/activity` visar aktiva kunder och inloggningar över tid. |
-| A.3.13 | Bör | Det bör vara möjligt att visualisera statistik över utförda aktiviteter, totalt och per område (såsom antal inloggningar, antal bokningar etc, förd… | **Uppfylld** | Statistik per område och över tid i förvaltarens översikt. |
-| A.3.14 | Bör | Det bör gå att ta ut statistik över hur många som har använt/klickat på respektive meny, enskilda nyheter mm, totalt samt uppdelat per område | **Delvis** | Läsning och bekräftelse per inlägg mäts och redovisas. Klick per menyval mäts inte. |
-
-## A.4 Kompatibilitet och klienter
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| A.4.1 | Ska | Tjänsten ska stödja aktuella versioner (minst de två senaste) av webbläsarna Microsoft Edge och Google Chrome. Med aktuella versioner avses de vers… | **Uppfylld** | Bygget riktar sig mot ES2022; stöds av aktuella versioner av Edge och Chrome. |
-| A.4.2 | Bör | Tjänsten bör stödja aktuella versioner (minst de två senaste) av webbläsaren Safari. Med aktuella versioner avses de versioner som leverantören av … | **Uppfylld** | Samma stöd i Safari. |
-| A.4.3 | Ska | Tjänsten ska uppvisa full funktionalitet för användare på mobila enheter som smarta telefoner och surfplattor förutsatt att dessa stödjer gällande … | **Uppfylld** | Full funktionalitet på mobil och surfplatta. |
-| A.4.6 | Ska | Mobilappen skall under hela avtalstiden stödja aktuell samt minst två majorversioner bakåt för IOS och fyra majorversioner bakåt för Android. | **Delvis** | Webbgränssnittet fungerar på de versionerna och går att installera på hemskärmen. Kravet i sin helhet förutsätter en publicerad mobilapplikation. |
-| A.4.7 | Bör | Botkyrkabyggen bör kunna ha ett unikt namn på sin mobilapp i Google Play Store och App Store. | **Kräver konfiguration** | Namn och ikon sätts vid publicering i respektive butik. |
-
-## A.5 Systemdokumentation
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| A.5.1 | Ska | Användardokumentationen ska vara på svenska. | **Uppfylld** | Handbok för handläggare och systemadministratörer i `docs/handbok-handlaggare.md`, guide för hyresgäster i `docs/guide-hyresgast.md`, båda på svenska. |
-| A.5.2 | Ska | Leverantören ska ge beställaren tillgång till fullständig systemdokumentation på svenska. | **Uppfylld** | Arkitektur, säkerhet, integrationer och kravuppfyllnad på svenska. |
-| A.5.3 | Ska | Systemdokumentation, systemkonfigurationsdokumentation, användar- och driftdokumentation ska upprättas och uppdateras fortlöpande utan kostnad av l… | **Leverantörsrutin** | Dokumentationen ligger i samma versionshantering som koden och uppdateras med den. Åtagandet över avtalstiden är organisatoriskt. |
-| A.5.4 | Ska | Dokumentation, användar- och systemdokumentation ska vara versionsstyrd och följa aktuell version av systemet. All dokumentation ska levereras digi… | **Uppfylld** | Versionsstyrd i git tillsammans med koden. |
-
-## A.6 Backup
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| A.6.1 | Ska | Backuptagning ska kunna ske online. Det vill säga, att systemet inte behöver stängas ned för att backup ska kunna ske. | **Leverantörsrutin** | Onlinebackup av PostgreSQL sker i driftmiljön utan nedstängning. |
-
-## A.7 Behörighet och identitetshantering
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| A.7.1 | Ska | Varje användare ska ha en unik identitet i systemet. | **Uppfylld** | Personliga konton med unik e-postadress per organisation. |
-| A.7.3 | Ska | Systemadministratör ska kunna lägga till, ändra och ta bort användare. | **Uppfylld** | Administratör skapar, ändrar och spärrar användare. |
-| A.7.4 | Ska | Systemadministratör ska kunna lägga till, ändra och ta bort en användares behörighetsinställningar och behörighetsroller. | **Uppfylld** | Roller och avgränsning till område eller fastighet ändras per användare. Ändring avslutar användarens sessioner. |
-| A.7.6 | Ska | Tjänsten ska ge möjlighet till att styra åtkomst till olika funktioner, processer och information utifrån tilldelad behörighetsroll. | **Uppfylld** | Behörighetsmatris som kontrolleras i backend vid varje anrop. |
-
-## B.1 Funktionella krav
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| B.1.1 | Bör | Medboende eller annan intressent bör kunna bjudas in till mobilapplikationen av kund. | **Uppfylld** | Hyresgästen bjuder in medboende med engångskod. |
-| B.1.2 | Bör | Antal medboende eller annan intressent som kund kan bjuda in, bör kunna begränsas till maximalt en (1) person. | **Uppfylld** | Högst en medboende per bostad; kontrolleras i backend. |
-| B.1.5 | Ska | Tjänsten ska ha funktion för att skicka push-notiser till kund. | **Kräver konfiguration** | Notiser skapas och köas med rätt mottagare och länkmål. Kräver nycklar för APNs och FCM. |
-| B.1.6 | Ska | Tjänsten ska ha funktion för att visa notiser direkt i systemgränsnittet. | **Uppfylld** | Notiscentral i appen med olästmarkering. |
-| B.1.7 | Ska | Kund ska kunna ställa in vilka notifikationer som är aktiva eller inte. | **Uppfylld** | Per ämne och kanal. Kritisk säkerhetsinformation kan inte stängas av. |
-| B.1.8 | Ska | Det ska i administrationsgränssnitt vara möjligt att söka på fastighetsstruktur. | **Uppfylld** | Sökning på objektnummer, adress, fastighet och lägenhet. |
-| B.1.9 | Ska | Det ska i administrationsgränssnitt vara möjligt att filtrera enligt fastighetsstruktur. | **Uppfylld** | Filtrering på område, fastighet och byggnad. |
-| B.1.11 | Ska | Det ska vara möjligt för Botkyrkabyggen att välja vilka funktioner i offererad lösning som kunden får ta del av. | **Uppfylld** | Moduler slås på och av per organisation i inställningarna. |
-| B.1.14 | Bör | Det bör finnas möjlighet att betala en hyresavi/faktura direkt i appen genom en integrerad betallösning. | **Kräver avtal** | Betalning i appen kräver avtal och integration. Appen påstår inte att betalning kan genomföras. |
-| B.1.15 | Ska | Botkyrkabyggen ska kunna kommunicera med kunder via riktade inlägg/nyheter/notiser. Inläggen ska minst kunna styras på byggnadsnivå, fastighetsnivå… | **Uppfylld** | Publicering per område, fastighet och byggnad. Verifierat med test. |
-| B.1.16 | Bör | Riktade inlägg/nyheter/notiser bör kunna läggas upp för kunder baserat på mindre enheter än byggnad, t.ex. trappuppgång, stam, enskild lägenhet. | **Uppfylld** | Även trapphus, enskild lägenhet och enskilt avtal. |
-| B.1.17 | Ska | Botkyrkabyggens handläggare ska kunna välja att publicera informationen samtidigt för flera områden/fastigheter/byggnader. | **Uppfylld** | Flera nivåer kan väljas samtidigt för samma inlägg. |
-| B.1.18 | Ska | Botkyrkabyggens handläggare ska kunna schemalägga inlägg/anslag/nyheter som läggs in att visas vid senare tidpunkt. | **Uppfylld** | Schemalagd publicering; bakgrundsjobb publicerar och skickar notiser. |
-| B.1.19 | Ska | Botkyrkabyggens handläggare ska kunna förinställa in en tidpunkt då inlägg/anslag/nyheter avpubliceras. | **Uppfylld** | Avpubliceringstid som bakgrundsjobbet verkställer. |
+| B.1.1 | Bör | Medboende eller annan intressent bör kunna bjudas in till mobilapplikationen av kund. | **Uppfylld** | Hyresgästen bjuder in en medboende från Mitt boende och får en kod att lämna vidare. |
+| B.1.2 | Bör | Antal medboende eller annan intressent som kund kan bjuda in, bör kunna begränsas till maximalt en (1) person. | **Uppfylld** | Högst en medboende per bostad. Gränsen kontrolleras på servern och räknar även väntande inbjudningar. |
+| B.1.3 | Bör | Tjänsten bör för medboende minst kunna hantera följande kundinformation: - Objektnummer (för hyresobjektet som finns i fastighetssystemet) - Kunden… | **Uppfylld** | Medboende bär samma uppgifter som hyresgästen och kopplas till samma objektnummer. |
+| B.1.4 | Ska | Tjänsten skall minst hantera följande kundinformation: - Objektnummer (för hyresobjektet som finns i fastighetssystemet) - Kundens namn - Kundens a… | **Uppfylld** | Objektnummer, namn, adress, telefon, e-post och personnummer hanteras. Personnumret lagras bara som pepprad hash. |
+| B.1.5 | Ska | Tjänsten ska ha funktion för att skicka push-notiser till kund. | **Uppfylld** | Webbpush med kryptering enligt RFC 8291 och signering enligt RFC 8292, utan extern leverantör. APNs och FCM tillkommer för de nativa apparna. |
+| B.1.6 | Ska | Tjänsten ska ha funktion för att visa notiser direkt i systemgränsnittet. | **Uppfylld** | Notiser visas i appen med olästmarkering, och ligger kvar så att informationen går att hitta i efterhand. |
+| B.1.7 | Ska | Kund ska kunna ställa in vilka notifikationer som är aktiva eller inte. | **Uppfylld** | Kunden styr kanal per ämne. Kritisk säkerhetsinformation kan inte stängas av, vilket framgår i gränssnittet. |
+| B.1.8 | Ska | Det ska i administrationsgränssnitt vara möjligt att söka på fastighetsstruktur. | **Uppfylld** | Sökning i fastighetsstrukturen med fritext över område, fastighet, byggnad och objekt. |
+| B.1.9 | Ska | Det ska i administrationsgränssnitt vara möjligt att filtrera enligt fastighetsstruktur. | **Uppfylld** | Filtrering på område, fastighet, byggnad och trapphus i ärendeinkorgen och i mottagarurvalet. |
+| B.1.10 | Ska | Botkyrkabyggens medarbetare ska i administrationsgränssnittet kunna se information runt varje hyresobjekt, minst följande: - Objektnummer - Namn - … | **Uppfylld** | Objektnummer, benämning, adress och boende visas per hyresobjekt i förvaltningsvyn. |
+| B.1.11 | Ska | Det ska vara möjligt för Botkyrkabyggen att välja vilka funktioner i offererad lösning som kunden får ta del av. | **Uppfylld** | Moduler slås på och av per organisation i inställningarna, och gränssnittet döljer det som är avstängt. |
+| B.1.12 | Ska | Kunder ska kunna hitta information om sitt hyresobjekt, minst följande: - uppgifter om hyresavtalets startdatum och tidigaste datum för utflytt vid… | **Uppfylld** | Avtalsstart, tidigaste utflytt, planlösning och dokument visas under Mitt boende. Uppgifterna kommer från fastighetssystemet när det är anslutet. |
+| B.1.13 | Ska | Kunder ska kunna se sina hyresavier/fakturor samt aktuell betalstatus för dessa (betald/obetald/förfallen). Uppgifter som skall finnas med är minst… | **Uppfylld** | Avtal, period, bankgiro, OCR, förfallodatum, belopp och betalstatus visas. Förfallen räknas fram ur förfallodatum. |
+| B.1.14 | Bör | Det bör finnas möjlighet att betala en hyresavi/faktura direkt i appen genom en integrerad betallösning. | **Kräver avtal** | Betalning i appen kräver avtal med betalleverantör. Appen påstår inte att betalning går att göra, utan visar bankgiro och OCR. Integrationen byggs när avtalet finns. |
+| B.1.15 | Ska | Botkyrkabyggen ska kunna kommunicera med kunder via riktade inlägg/nyheter/notiser. Inläggen ska minst kunna styras på byggnadsnivå, fastighetsnivå… | **Uppfylld** | Utskick riktas på hyresgäst, lägenhet, trapphus, byggnad, fastighet, område eller alla, och visas för alla som ingår i urvalet. |
+| B.1.16 | Bör | Riktade inlägg/nyheter/notiser bör kunna läggas upp för kunder baserat på mindre enheter än byggnad, t.ex. trappuppgång, stam, enskild lägenhet. | **Uppfylld** | Trapphus och enskild lägenhet ingår i mottagarurvalet. |
+| B.1.17 | Ska | Botkyrkabyggens handläggare ska kunna välja att publicera informationen samtidigt för flera områden/fastigheter/byggnader. | **Uppfylld** | Flera områden, fastigheter och byggnader kan väljas samtidigt, och antalet berörda räknas upp innan publicering. |
+| B.1.18 | Ska | Botkyrkabyggens handläggare ska kunna schemalägga inlägg/anslag/nyheter som läggs in att visas vid senare tidpunkt. | **Uppfylld** | Publicering kan schemaläggas. Ett bakgrundsjobb publicerar vid rätt tidpunkt. |
+| B.1.19 | Ska | Botkyrkabyggens handläggare ska kunna förinställa in en tidpunkt då inlägg/anslag/nyheter avpubliceras. | **Uppfylld** | Avpubliceringstidpunkt kan sättas i förväg och verkställs av samma jobb. |
 | B.1.20 | Bör | Botkyrkabyggens handläggare bör kunna fästa viktiga inlägg/anslag/nyheter överst i flödet t.o.m ett angivet datum. | **Uppfylld** | Inlägg kan fästas överst till och med ett angivet datum. |
-| B.1.21 | Ska | Det ska i administrationsgränssnittet finnas möjlighet att använda en editor där Botkyrkabyggens handläggare kan utforma meddelandet/inlägget/nyhet… | **Uppfylld** | Redigering av rubrik, sammanfattning, text och bild. |
-| B.1.22 | Bör | Det bör i administrationsgränssnittet finnas en sammanställning/arkiv som visar tidigare inlägg/anslag/nyheter – för spårning samt kopiering/återan… | **Uppfylld** | Arkiv med publicerade, schemalagda och avpublicerade inlägg samt läskvitton. |
-| B.1.23 | Bör | Det bör i administrationsgränssnittet gå att förhandsgranska inlägg/nyhet/ information i "appläge" innan publicering. | **Uppfylld** | Förhandsgranskning som visar inlägget så som det ser ut i appen. |
-| B.1.24 | Bör | Kunder bör i appen kunna se och följa sin förbrukning av el och vatten förutsatt att detta mäts i kundens hyresobjekt. | **Kräver avtal** | Kräver mätvärdesinsamling per objekt. Funktionen visas inte förrän mätvärden finns. |
-| B.1.25 | Ska | Kunder ska i appen kunna hitta kontaktinformation till Botkyrkabyggen. | **Uppfylld** | Kontaktsida med kundservice, fastighetsjour och störningsjour. |
-| B.1.26 | Ska | Det ska vara möjligt för Botkyrkabyggens handläggare att spegla utvalt informationsinnehåll från Botkyrkabyggens webbplats till appen. | **Delvis** | Innehåll kan läggas in som kunskapsartiklar med källadress. Automatisk spegling från webbplatsen kräver konfiguration. |
-| B.1.27 | Bör | Kunder bör själva kunna redigera viss personlig information (t.ex. e-post, telefonnummer), och de nya uppgifterna ska i sådana fall även läggas in … | **Delvis** | Hyresgästen ändrar e-post och telefon. Överföring till fastighetssystemet sker när integrationen är ansluten; tills dess får användaren tydligt besked. |
-| B.1.28 | Ska | Kunder ska kunna skapa felanmälningar och övriga typer av ärenden som finns definierade i fastighetssystemet. | **Uppfylld** | Felanmälan, störningsärende, övrig begäran och besiktning. |
-| B.1.31 | Ska | Kund ska kunna bifoga text och bild i felanmälan. | **Uppfylld** | Text, bilder, film och PDF, med kontroll av filens verkliga innehåll. |
-| B.1.32 | Bör | Det bör vara möjligt att automatiskt i systemet skala ned de bilder som kunden bifogar i sin felanmälan. | **Uppfylld** | Bilder skalas ned till högst 2048 px längsta sida i klienten, innan filen lämnar telefonen. Ogenomskinlig PNG kodas om till JPEG. Uppmätt: 24 MB → 1 MB för en bild på 3600 × 2400. Går bilden inte att avkoda laddas originalet upp oförändrat. |
-| B.1.33 | Ska | Det ska finnas möjlighet för kunder att skapa fler typer av ärenden utöver felanmälan. Varje ärendetyp ska sedan kunna skickas till en fördefiniera… | **Uppfylld** | Fördelningsregler styr ärendetyp och område till rätt handläggargrupp. |
-| B.1.34 | Ska | Kund ska kunna se en översikt över sina felanmälningar och övriga ärenden samt aktuell status för respektive ärende (ej påbörjad, påbörjad eller av… | **Uppfylld** | Ej påbörjad, påbörjad och avslutad för hyresgästen, med detaljerad status internt. |
-| B.1.35 | Bör | Det bör vara möjligt att kommunicera i löpande inlägg mellan hyresgäst och handläggare i enskilt ärende. Hyresgäst ska kunna få notis i appen då de… | **Uppfylld** | Löpande dialog i ärendet med notis vid nytt meddelande. Interna anteckningar visas aldrig för hyresgästen. |
-| B.1.36 | Ska | Kund ska kunna boka resurser som Botkyrkabyggen tillhandahåller, såsom tvättstuga. | **Uppfylld** | Tvättstuga, gemensamhetslokal, bastu, gästlägenhet, parkering, besök, besiktning och nyckelhämtning. |
+| B.1.21 | Ska | Det ska i administrationsgränssnittet finnas möjlighet att använda en editor där Botkyrkabyggens handläggare kan utforma meddelandet/inlägget/nyhet… | **Uppfylld** | Editor med rubrik, text och bild, på svenska och engelska. |
+| B.1.22 | Bör | Det bör i administrationsgränssnittet finnas en sammanställning/arkiv som visar tidigare inlägg/anslag/nyheter – för spårning samt kopiering/återan… | **Uppfylld** | Arkiv över tidigare inlägg med publiceringstidpunkt, mottagarurval och lästal. |
+| B.1.23 | Bör | Det bör i administrationsgränssnittet gå att förhandsgranska inlägg/nyhet/ information i "appläge" innan publicering. | **Uppfylld** | Förhandsgranskning i appläge visas i samma formulär, före publicering. |
+| B.1.24 | Bör | Kunder bör i appen kunna se och följa sin förbrukning av el och vatten förutsatt att detta mäts i kundens hyresobjekt. | **Kräver avtal** | Förbrukning visas först när mätvärden kan hämtas. Det kräver både mätning i objektet och avtal med mätvärdesleverantör. Ingenting visas dessförinnan. |
+| B.1.25 | Ska | Kunder ska i appen kunna hitta kontaktinformation till Botkyrkabyggen. | **Uppfylld** | Kontaktvägar med telefon, e-post, öppettider och journummer, per organisation. |
+| B.1.26 | Ska | Det ska vara möjligt för Botkyrkabyggens handläggare att spegla utvalt informationsinnehåll från Botkyrkabyggens webbplats till appen. | **Uppfylld** | Handläggaren pekar ut en sida på bolagets webbplats. Innehållet rensas med tillåtandelista, granskas och publiceras därefter. |
+| B.1.27 | Bör | Kunder bör själva kunna redigera viss personlig information (t.ex. e-post, telefonnummer), och de nya uppgifterna ska i sådana fall även läggas in … | **Uppfylld** | Kunden ändrar e-post och telefon själv. Ändringen läggs i utgående kö och skickas till fastighetssystemet, även om det är otillgängligt just då. |
+| B.1.28 | Ska | Kunder ska kunna skapa felanmälningar och övriga typer av ärenden som finns definierade i fastighetssystemet. | **Uppfylld** | Felanmälan och tre ytterligare ärendetyper. Vilka som finns styrs av beställaren och kan speglas mot fastighetssystemets uppsättning. |
+| B.1.29 | Ska | Det ska gå att skapa felanmälan för olika utrymmen som är fördefinierade utifrån kundens avtal: - Bostaden - Övriga kontraktsobjekt, t.ex. parkerin… | **Uppfylld** | Bostaden, övriga kontraktsobjekt och allmänna utrymmen väljs utifrån kundens avtal. |
+| B.1.30 | Ska | Det skall finnas funktionalitet för att ange ytterligare val utifrån objektstyp för felanmälan, som hämtas från Vitec, såsom: - Utrymme i bostad - … | **Uppfylld** | Utrymme, feltyp, beskrivning, husdjur och tillträde med nyckel finns i felanmälan. Uppsättningen styrs av beställaren och kan hämtas från fastighetssystemet vid anslutning. |
+| B.1.31 | Ska | Kund ska kunna bifoga text och bild i felanmälan. | **Uppfylld** | Text och bild kan bifogas. Bilder skalas ned i telefonen innan uppladdning. |
+| B.1.32 | Bör | Det bör vara möjligt att automatiskt i systemet skala ned de bilder som kunden bifogar i sin felanmälan. | **Uppfylld** | Nedskalning till 2048 px sker i webbläsaren. En 24 MB kamerabild blev 1 MB i verklig körning, en minskning med 96 procent. |
+| B.1.33 | Ska | Det ska finnas möjlighet för kunder att skapa fler typer av ärenden utöver felanmälan. Varje ärendetyp ska sedan kunna skickas till en fördefiniera… | **Uppfylld** | Fler ärendetyper finns, och varje typ styrs till rätt grupp av handläggare med regler beställaren själv sätter. |
+| B.1.34 | Ska | Kund ska kunna se en översikt över sina felanmälningar och övriga ärenden samt aktuell status för respektive ärende (ej påbörjad, påbörjad eller av… | **Uppfylld** | Översikt över egna ärenden med tio statusar och en synlig tidslinje. |
+| B.1.35 | Bör | Det bör vara möjligt att kommunicera i löpande inlägg mellan hyresgäst och handläggare i enskilt ärende. Hyresgäst ska kunna få notis i appen då de… | **Uppfylld** | Löpande dialog i ärendet. Interna anteckningar syns aldrig för hyresgästen. Notis vid nytt meddelande. |
+| B.1.36 | Ska | Kund ska kunna boka resurser som Botkyrkabyggen tillhandahåller, såsom tvättstuga. | **Uppfylld** | Bokning av tvättstuga och andra resurser. Dubbelbokning hindras av databasen, inte av gränssnittet. |
 | B.1.37 | Ska | Bokningsresurser ska minst kunna vara unika per område, fastighet eller byggnad. | **Uppfylld** | Resurser knyts till område, fastighet eller byggnad. |
-| B.1.38 | Bör | Bokningsresurser bör kunna läggas upp för mindre enheter än byggnad, t.ex. trappuppgång, stam, enskild lägenhet. | **Uppfylld** | Även trapphus och enskild lägenhet. |
-| B.1.39 | Ska | Vid bokning av resurser ska kund kunna se ett schema med bokningsbara tider. | **Uppfylld** | Schema med lediga, bokade, spärrade och egna tider. |
+| B.1.38 | Bör | Bokningsresurser bör kunna läggas upp för mindre enheter än byggnad, t.ex. trappuppgång, stam, enskild lägenhet. | **Uppfylld** | Resurser kan även knytas till trapphus och enskilt objekt. |
+| B.1.39 | Ska | Vid bokning av resurser ska kund kunna se ett schema med bokningsbara tider. | **Uppfylld** | Schema med lediga och upptagna tider, mot resursens öppettider. |
 
-## C.1 Generella IT-säkerhetskrav
+### C. Informationssäkerhetskrav
 
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
+| # | Typ | Krav | Bedömning | Var det är löst |
 | --- | --- | --- | --- | --- |
-| C.1.1 | Ska | Leverantören ska bedriva ett dokumenterat och systematiskt säkerhetsarbete anpassat till tjänstens risknivå. | **Leverantörsrutin** |  |
-| C.1.2 | Ska | Leverantören ska ha dokumenterade rutiner för hantering av säkerhetsbrister och säkerhetsuppdateringar. | **Leverantörsrutin** |  |
-| C.1.3 | Ska | Leverantören ska regelbundet uppdatera och underhålla lösningen under avtalstiden. | **Leverantörsrutin** |  |
-| C.1.4 | Ska | Leverantören ska arbeta enligt etablerad god praxis för säker utveckling och webbsäkerhet, exempelvis OWASP eller motsvarande. | **Uppfylld** | Parametriserade frågor, validering av all indata, säkra svarshuvuden, hastighetsbegränsning, kontroll av uppladdat innehåll och behörighet på objektnivå. |
-| C.1.5 | Ska | Leverantören ska genomföra återkommande säkerhetstester eller motsvarande kontroller av lösningen. | **Leverantörsrutin** |  |
-| C.1.6 | Ska | Leverantören ska ha rutiner för säker hantering av administratörs- och supportåtkomst. | **Leverantörsrutin** |  |
-| C.1.7 | Ska | Leverantören ska ha tekniska och organisatoriska skydd mot skadlig kod i de delar av tjänsten som leverantören ansvarar för. | **Leverantörsrutin** |  |
-| C.1.8 | Ska | Leverantören ska ha kontrollerad hantering av säkerhetsrelevanta konfigurationer i tjänsten och dess driftmiljö. | **Leverantörsrutin** |  |
-| C.1.9 | Ska | Leverantören ska ha rutiner för att testa, godkänna och vid behov återställa ändringar som påverkar tjänsten. | **Leverantörsrutin** | Stöds tekniskt: typkontroll, bygge och samtliga tester körs automatiskt vid varje ändring (`.github/workflows/ci.yml`), och migreringar med ändrad kontrollsumma avvisas. Själva rutinen är organisatorisk. |
-| C.1.10 | Ska | Leverantören ska säkerställa att större förändringar i tjänsten föregås av relevanta tester innan de införs i produktionsmiljö. | **Leverantörsrutin** |  |
-| C.1.11 | Ska | Leverantören ska ha aktuell dokumentation över tjänstens tekniska huvudkomponenter, integrationer och driftmodell. | **Uppfylld** | Dokumenterat i `docs/arkitektur.md` och `docs/integrationer.md`. |
-| C.1.12 | Ska | Leverantören ska säkerställa att beställarens information hålls logiskt eller fysiskt separerad från andra kunders information. | **Uppfylld** | Logisk separation med Row Level Security. Verifierat med test som bevisar att en organisation inte når en annans rader. |
-| C.1.13 | Ska | Leverantören ska tillhandahålla en testmiljö där nya funktioner, integrationer och förändringar kan testas innan de införs i produktionsmiljö. | **Leverantörsrutin** | Testmiljö sätts upp i driftleveransen; koden stödjer separata miljöer via miljövariabler. |
-
-## C.2 Identitet och åtkomst
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.2.1 | Ska | Hyresgäster ska autentiseras med BankID eller annan stark autentisering som godkänts av beställaren. | **Kräver avtal** | BankID är förberett. Kräver avtal och produktionscertifikat. Fram till dess används verifierad e-postadress och lösenord. |
-| C.2.2 | Ska | Lösningen ska koppla autentiserad hyresgäst till rätt kund-, boende- eller avtalsinformation i fastighetssystemet. | **Uppfylld** | Kopplingen mellan konto och hyresförhållande finns i `tenancy_residents`; personnummer matchas via nyckelbunden hash. |
-| C.2.3 | Ska | Lösningen ska säkerställa att användare endast får åtkomst till information och funktioner som de är behöriga till. | **Uppfylld** | Behörighet kontrolleras i tre lager. Verifierat med test. |
-| C.2.4 | Ska | Administrativa användare hos beställaren ska kunna logga in med federerad inloggning och SSO via Microsoft Entra ID. | **Kräver konfiguration** | OpenID Connect mot Entra ID. Kräver appregistrering i kundens katalog. |
-| C.2.5 | Ska | Lösningen ska stödja federerad inloggning mot Microsoft Entra ID genom etablerade standarder, exempelvis SAML 2.0 eller OpenID Connect. | **Kräver konfiguration** | Samma som ovan. |
-| C.2.6 | Ska | Samtliga administrativa användare hos beställaren ska kunna omfattas av beställarens krav på multifaktorautentisering genom federerad inloggning el… | **Uppfylld** | Tvåfaktor är obligatorisk för personalkonton och kan inte förbigås. |
-| C.2.7 | Ska | Leverantörens administrativa konton och supportkonton med åtkomst till tjänsten eller beställarens information ska skyddas med MFA eller motsvarand… | **Leverantörsrutin** |  |
-| C.2.8 | Ska | Lösningen ska stödja roll- och behörighetsstyrning för administrativa användare. | **Uppfylld** | Roll- och behörighetsstyrning med avgränsning till område och fastighet. |
-| C.2.9 | Ska | Inloggningar och administrativa åtgärder ska loggas och spåras. | **Uppfylld** | Inloggningar och administrativa åtgärder loggas i den oföränderliga säkerhetsloggen. |
-| C.2.10 | Ska | Sessioner för minst adminstratörer ska avslutas efter inaktivitet. Beskriv hur kravet uppfylls. | **Uppfylld** | 30 minuters inaktivitet för personal, 14 dagar för hyresgäster. Verifierat med test. |
-| C.2.11 | Ska | Konton med administrativa eller utökade behörigheter ska skyddas med MFA. | **Uppfylld** | Samtliga personalroller omfattas. |
-| C.2.12 | Ska | Icke-personliga konton, exempelvis system-, service- och integrationskonton, ska begränsas till nödvändiga behörigheter och skyddas mot obehörig an… | **Delvis** | Integrationskonton refererar hemligheter via `secret_ref` och begränsas per integration. Sätts upp när första integrationen ansluts. |
-| C.2.13 | Ska | Lösningen ska uppdatera eller avsluta hyresgästens åtkomst när kund-, boende- eller avtalsrelationen ändras i fastighetssystemet. | **Uppfylld** | Bakgrundsjobb avslutar behörigheter när boendeförhållandet upphör. |
-
-## C.3 Integrationer och API-säkerhet
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.3.1 | Ska | All kommunikation mellan lösningen och externa system, API:er och integrationskomponenter ska vara krypterad med TLS 1.2 eller högre, eller motsvar… | **Uppfylld** | TLS terminieras före applikationen; HSTS sätts i produktionsläge. |
-| C.3.2 | Ska | API:er och integrationer ska kräva autentisering. Användarnamn, lösenord, tokens, API-nycklar eller motsvarande autentiseringsuppgifter får inte la… | **Uppfylld** | Hemligheter lagras aldrig i klartext och filtreras bort ur både loggar och säkerhetslogg. Verifierat med test. |
-| C.3.3 | Ska | Integrationer ska endast ha åtkomst till den information och de funktioner som krävs för tjänsten. | **Uppfylld** | Varje integration begränsas till den information den behöver. |
-| C.3.4 | Ska | Lösningen ska kunna logga integrationsanrop och relevanta förändringar mellan lösningen och verksamhetssystemet. | **Uppfylld** | `integration_events`, append-only. |
-| C.3.5 | Ska | Leverantörens lösning ska hantera integrationsfel, avbrott och återkommande felaktiga anrop på ett kontrollerat sätt, så att tjänsten och anslutna … | **Uppfylld** | Utgående meddelanden köas med försöksräknare; fel påverkar inte övriga funktioner. |
-| C.3.6 | Ska | Lösningen ska säkerställa att användare endast kan läsa och påverka information som de är behöriga till. | **Uppfylld** | Verifierat med test för både läsning och skrivning. |
-| C.3.7 | Ska | Information som skickas mellan appen och verksamhetssystem ska kunna kopplas till relevant användare, funktion eller händelse. | **Uppfylld** | Varje integrationshändelse bär användare, objekt och korrelations-ID. |
-| C.3.8 | Ska | Information ska valideras innan data skickas till verksamhetssystemet. | **Uppfylld** | All indata valideras med scheman innan den sparas eller skickas vidare. |
-| C.3.9 | Ska | Lösningen ska kunna logga förändringar och händelser som skickas till eller från verksamhetssystemet. | **Uppfylld** | Samma logg som C.3.4. |
-| C.3.10 | Ska | Lösningen ska säkerställa att information mellan appen och verksamhetssystemet hålls uppdaterad. | **Kräver konfiguration** | Uppdatering sker vid ansluten integration. |
-| C.3.11 | Ska | Lösningen ska kunna hantera tillfälliga fördröjningar, avbrott, misslyckade uppdateringar eller tillfälliga integrationsstörningar mellan appen och… | **Uppfylld** | Kön hindrar att ofullständig information skrivs vidare vid avbrott. |
-| C.3.12 | Ska | Om lokal cache används ska cachelagrad information skyddas mot obehörig åtkomst och raderas när den inte längre behövs. | **Uppfylld** | Åtkomsttoken ligger i `sessionStorage` och försvinner när fliken stängs. Filsvar sätts till `no-store`. Servicearbetarens cache innehåller bara programfiler, verifierat automatiskt. |
-| C.3.13 | Ska | Användaren ska informeras på ett tydligt sätt om en åtgärd inte kan genomföras eller om information inte är uppdaterad. | **Uppfylld** | Fellägen visar begripligt meddelande, spårnings-ID och möjlighet att försöka igen. Utebliven uppdatering mot fastighetssystemet redovisas för användaren. |
-| C.3.14 | Ska | Lösningen ska kontrollera behörighet på objekt- och funktionsnivå vid relevanta API-anrop, så att användare inte kan läsa, ändra eller skapa inform… | **Uppfylld** | Kontroll på objektnivå vid varje anrop, plus Row Level Security. Verifierat med test. |
-
-## C.4 Loggning och spårbarhet
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.4.1 | Ska | Lösningen ska logga säkerhetsrelaterade händelser, administrativa åtgärder, inloggningar och integrationshändelser. | **Uppfylld** | Säkerhetslogg och integrationslogg. |
-| C.4.2 | Ska | Loggar ska skyddas mot obehörig åtkomst och manipulation. | **Uppfylld** | Loggarna är append-only i databasen; applikationsrollen saknar UPDATE och DELETE. Verifierat med test. |
-| C.4.3 | Ska | Leverantören ska kunna bistå beställaren med relevanta loggar vid incident eller felsökning. | **Uppfylld** | Loggen kan filtreras och läsas ut i administrationsgränssnittet. |
-| C.4.4 | Ska | Leverantören ska ha övervakning eller motsvarande förmåga för att upptäcka säkerhetsincidenter och avvikande beteenden i tjänsten. | **Leverantörsrutin** | Beredskapskontroll finns på `/api/health/ready`; övervakningen driftsätts av leverantören. |
-
-## C.5 Mobil- och klientsäkerhet
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.5.1 | Ska | Appen ska utvecklas och testas med hänsyn till etablerad god praxis för mobilappssäkerhet, exempelvis OWASP MASVS eller motsvarande. | **Delvis** | Webbklienten följer etablerad praxis. En bedömning enligt OWASP MASVS förutsätter en publicerad mobilapplikation. |
-| C.5.2 | Ska | Skyddsvärd information får inte lagras okrypterat på mobil enhet. | **Uppfylld** | Ingen skyddsvärd information lagras beständigt i klienten. Servicearbetaren cachar enbart programfiler; `e2e/service-worker.mjs` granskar cachens hela innehåll och kontrollerar att inget svar från /api/ finns där. |
-| C.5.3 | Ska | Skyddsvärd information ska inte exponeras i notifieringar, pushnotiser, cache, lokala loggar eller andra klientnära funktioner om det inte är nödvä… | **Uppfylld** | Pushnotiser innehåller bara en kort inledning, aldrig ärendets innehåll. |
-| C.5.4 | Ska | Kommunikation mellan app och backend ska vara krypterad. | **Uppfylld** | All kommunikation över TLS. |
-| C.5.5 | Ska | Appen ska verifiera certifikat vid kommunikation mot backend och API:er. | **Delvis** | Webbläsarens certifikatkontroll gäller. Certifikatnålning läggs till i en native app. |
-| C.5.6 | Ska | Om lösningen tillåter uppladdning av filer eller bilder ska dessa hanteras på ett säkert sätt. Godkända filtyper och filstorlekar ska kunna begräns… | **Kräver konfiguration** | Filtyp och storlek begränsas, filens verkliga inledande byte kontrolleras och åtkomsten prövas vid varje nedladdning. Extern granskning är byggd och testad: en fil som flaggas avvisas, en fil som inte kunnat granskas hamnar i karantän och går varken att koppla till ett ärende eller att hämta. Aktiveras med `FILE_SCAN_URL`. |
-
-## C.6 Säker utveckling och teknisk förändring
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.6.1 | Ska | Leverantören ska begränsa åtkomst till egenutvecklad kod, kundspecifika anpassningar, byggmiljöer och utvecklingsverktyg till behöriga personer. | **Leverantörsrutin** |  |
-| C.6.2 | Ska | Källkod och konfigurationer som används för tjänsten ska hanteras med versionskontroll eller motsvarande spårbar hantering. | **Uppfylld** | All kod och konfiguration i git. |
-| C.6.3 | Ska | Leverantören ska säkerställa att utvecklings-, test- och produktionsmiljöer är separerade. | **Leverantörsrutin** | Miljöerna styrs av miljövariabler och separata databaser. |
-| C.6.5 | Ska | Leverantören ska ha möjlighet att återställa eller korrigera ändringar som orsakar allvarliga fel eller säkerhetsproblem i tjänsten. | **Uppfylld** | Versionshantering och kontrollerade migreringar; migreringar med ändrad kontrollsumma avvisas. |
-| C.6.6 | Ska | Leverantören ska genomföra relevanta säkerhetstester vid större förändringar som påverkar tjänstens säkerhet, åtkomst, integrationer eller externa … | **Leverantörsrutin** | Stöds tekniskt: testerna för kundseparering, behörighet och filhantering körs vid varje ändring. Återkommande penetrationstest är en organisatorisk rutin. |
-| C.6.7 | Ska | Leverantören ska ha rutiner för att hantera upptäckta sårbarheter i egen kod, tredjepartskomponenter och driftmiljö. | **Leverantörsrutin** |  |
-
-## C.7 Incidenthantering
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.7.1 | Ska | Leverantören ska ha dokumenterade rutiner för hantering av säkerhetsincidenter. | **Leverantörsrutin** |  |
-| C.7.2 | Ska | Säkerhetsincidenter som påverkar tjänsten, beställarens information eller integrationer ska rapporteras till beställaren utan onödigt dröjsmål. | **Leverantörsrutin** |  |
-| C.7.3 | Ska | Leverantören ska tillhandahålla kontaktvägar för incidenthantering och eskalering. | **Leverantörsrutin** |  |
-| C.7.4 | Ska | Leverantören ska kunna hantera incidenter som påverkar tjänstens säkerhet eller tillgänglighet. | **Leverantörsrutin** |  |
-| C.7.5 | Ska | Leverantören ska dokumentera säkerhetsincidenter som påverkar tjänsten och kunna redovisa relevanta åtgärder för beställaren. | **Leverantörsrutin** |  |
-
-## C.8 Backup, kontinuitet och återställning
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.8.1 | Ska | Leverantören ska ha dokumenterade rutiner för backup och återställning. | **Leverantörsrutin** |  |
-| C.8.2 | Ska | Backuper ska skyddas mot obehörig åtkomst. | **Leverantörsrutin** |  |
-| C.8.3 | Ska | Leverantören ska regelbundet testa återställning av backup eller motsvarande återställningsförmåga. | **Leverantörsrutin** |  |
-| C.8.4 | Ska | Leverantören ska övervaka tjänstens kapacitet och prestanda i syfte att upptäcka störningar och säkerställa avtalad tillgänglighet. | **Delvis** | Beredskapskontroll och körningslogg för bakgrundsjobb finns. Kapacitetsövervakning sätts upp i driftmiljön. |
-| C.8.5 | Ska | Leverantören ska ha förmåga att hantera driftstörningar i de delar av tjänsten som krävs för att upprätthålla avtalad tillgänglighet. | **Leverantörsrutin** |  |
-
-## C.9 Uppföljning och verifiering
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.9.1 | Ska | Leverantören ska på begäran kunna redovisa dokumentation som visar hur avtalade säkerhetskrav efterlevs. | **Leverantörsrutin** |  |
-| C.9.2 | Ska | Leverantören ska kunna redovisa genomförda säkerhetsåtgärder och förbättringar som är relevanta för tjänsten. | **Leverantörsrutin** |  |
-| C.9.3 | Ska | Uppföljning ska i första hand baseras på dokumentation, självdeklarationer, standardiserade underlag, certifieringar, revisioner eller motsvarande. | **Leverantörsrutin** |  |
-| C.9.4 | Ska | Leverantören ska medverka vid uppföljning av säkerhetskrav vid större förändring, allvarlig incident eller införande av ny väsentlig underleverantör. | **Leverantörsrutin** |  |
-
-## C.10 AI och automatisering
-
-| Krav | Typ | Innehåll | Bedömning | Kommentar |
-| --- | --- | --- | --- | --- |
-| C.10.1 | Ska | AI-funktioner får inte användas för att fatta beslut eller ge automatiserade rekommendationer som påverkar hyresgäster, ärenden eller Botkyrkabygge… | **Uppfylld** | Plattformen fattar inga beslut med språkmodeller. Prioritering och statusflöden är deterministiska regler, verifierade med test. |
-| C.10.2 | Ska | Information från beställaren, hyresgäster eller andra användare får inte användas för träning eller generell utveckling av AI-modeller utan beställ… | **Uppfylld** | Ingen kunddata lämnar plattformen för modellträning. |
+| C.1.1 | Ska | Leverantören ska bedriva ett dokumenterat och systematiskt säkerhetsarbete anpassat till tjänstens risknivå. | **Leverantörsrutin** | Årscykel med kvartalsgenomgång, behörighetsgenomgång, rutingenomgång och övning. Se docs/rutiner/sakerhetsarbete.md. |
+| C.1.2 | Ska | Leverantören ska ha dokumenterade rutiner för hantering av säkerhetsbrister och säkerhetsuppdateringar. | **Leverantörsrutin** | Klassning i fyra nivåer med åtgärdstider från 24 timmar till nästa release. Se docs/rutiner/sakerhetsarbete.md. |
+| C.1.3 | Ska | Leverantören ska regelbundet uppdatera och underhålla lösningen under avtalstiden. | **Leverantörsrutin** | Beroenden gås igenom varje månad och uppgraderas löpande. npm audit rapporterar i dag noll sårbarheter. |
+| C.1.4 | Ska | Leverantören ska arbeta enligt etablerad god praxis för säker utveckling och webbsäkerhet, exempelvis OWASP eller motsvarande. | **Leverantörsrutin** | OWASP ASVS nivå 2 som måttstock och Top 10 som checklista. Dokumentet visar var i koden varje risk hanteras. |
+| C.1.5 | Ska | Leverantören ska genomföra återkommande säkerhetstester eller motsvarande kontroller av lösningen. | **Leverantörsrutin** | Automatiska tester och beroendegranskning vid varje bygge, egen ASVS-genomgång varje halvår, penetrationstest av extern part före driftsättning och därefter årligen. Penetrationstestet är inte genomfört. |
+| C.1.6 | Ska | Leverantören ska ha rutiner för säker hantering av administratörs- och supportåtkomst. | **Leverantörsrutin** | Personlig och tidsbegränsad åtkomst med multifaktor. Support arbetar i tjänstens egna gränssnitt, så att åtkomsten hamnar i säkerhetsloggen. |
+| C.1.7 | Ska | Leverantören ska ha tekniska och organisatoriska skydd mot skadlig kod i de delar av tjänsten som leverantören ansvarar för. | **Leverantörsrutin** | Filers verkliga format kontrolleras, PDF med aktivt innehåll avvisas, och en konfigurerad skanner som inte svarar sätter filen i karantän. Extern skanningstjänst är inte upphandlad. |
+| C.1.8 | Ska | Leverantören ska ha kontrollerad hantering av säkerhetsrelevanta konfigurationer i tjänsten och dess driftmiljö. | **Leverantörsrutin** | Konfiguration i versionshanterad kod och miljövariabler. Hemligheter ligger aldrig i databasen, bara en referens som slås upp i driftmiljön. |
+| C.1.9 | Ska | Leverantören ska ha rutiner för att testa, godkänna och vid behov återställa ändringar som påverkar tjänsten. | **Leverantörsrutin** | Se docs/rutiner/saker-utveckling.md, avsnitt C.6.5. |
+| C.1.10 | Ska | Leverantören ska säkerställa att större förändringar i tjänsten föregås av relevanta tester innan de införs i produktionsmiljö. | **Leverantörsrutin** | Ingen ändring når produktion utan att hela testsviten och bygget gått igenom. Större förändringar granskas dessutom i testmiljön. |
+| C.1.11 | Ska | Leverantören ska ha aktuell dokumentation över tjänstens tekniska huvudkomponenter, integrationer och driftmodell. | **Uppfylld** | docs/arkitektur.md beskriver komponenter, datamodell, driftmodell och vad tjänsten vilar på. |
+| C.1.12 | Ska | Leverantören ska säkerställa att beställarens information hålls logiskt eller fysiskt separerad från andra kunders information. | **Uppfylld** | Logisk separering i databasen med radnivåsäkerhet på 69 av 71 tabeller. Applikationens roll saknar SUPERUSER och BYPASSRLS, och servern vägrar starta om det inte stämmer. Fjorton tester prövar det. |
+| C.1.13 | Ska | Leverantören ska tillhandahålla en testmiljö där nya funktioner, integrationer och förändringar kan testas innan de införs i produktionsmiljö. | **Ingår i leveransen** | Testmiljö med samma uppsättning som produktion, egen databas och egna hemligheter, och demodata i stället för kopierade personuppgifter. Sätts upp vid införandet. |
+| C.2.1 | Ska | Hyresgäster ska autentiseras med BankID eller annan stark autentisering som godkänts av beställaren. | **Kräver avtal** | BankID-klient över ömsesidig TLS med animerad QR-kod enligt specifikationen. Kräver avtal med BankID-leverantör och RP-certifikat. Simulatorn kan inte slås på i produktion och redovisas som testmiljö. |
+| C.2.2 | Ska | Lösningen ska koppla autentiserad hyresgäst till rätt kund-, boende- eller avtalsinformation i fastighetssystemet. | **Uppfylld** | Personnumret matchas mot en pepprad hash på kundposten. Det lagras aldrig i klartext och skrivs aldrig i säkerhetsloggen. |
+| C.2.3 | Ska | Lösningen ska säkerställa att användare endast får åtkomst till information och funktioner som de är behöriga till. | **Uppfylld** | Behörigheten prövas i backend vid varje läsning, ändring och filhämtning. Att filtrera i gränssnittet räcker inte, och görs inte. |
+| C.2.4 | Ska | Administrativa användare hos beställaren ska kunna logga in med federerad inloggning och SSO via Microsoft Entra ID. | **Kräver konfiguration** | OpenID Connect med authorization code och PKCE. Flödet är prövat mot en riktig leverantör i test. Kräver appregistrering i beställarens katalog. |
+| C.2.5 | Ska | Lösningen ska stödja federerad inloggning mot Microsoft Entra ID genom etablerade standarder, exempelvis SAML 2.0 eller OpenID Connect. | **Kräver konfiguration** | OpenID Connect enligt standarden, med discovery och verifiering mot utfärdarens publika nycklar. Kräver uppgifter enligt C.2.4. |
+| C.2.6 | Ska | Samtliga administrativa användare hos beställaren ska kunna omfattas av beställarens krav på multifaktorautentisering genom federerad inloggning el… | **Kräver konfiguration** | Multifaktor sköts av katalogen vid federerad inloggning. Utan federation gäller tjänstens egen engångskod, som är obligatorisk för alla personalroller. |
+| C.2.7 | Ska | Leverantörens administrativa konton och supportkonton med åtkomst till tjänsten eller beställarens information ska skyddas med MFA eller motsvarand… | **Leverantörsrutin** | Leverantörens administrativa konton och supportkonton skyddas med multifaktor. Se docs/rutiner/sakerhetsarbete.md. |
+| C.2.8 | Ska | Lösningen ska stödja roll- och behörighetsstyrning för administrativa användare. | **Uppfylld** | Elva roller med en rättighetsmatris, och avgränsning till område eller fastighet per användare. |
+| C.2.9 | Ska | Inloggningar och administrativa åtgärder ska loggas och spåras. | **Uppfylld** | Inloggningar och administrativa åtgärder hamnar i säkerhetsloggen med användare, roll, utfall, IP-adress och spårnings-id. |
+| C.2.10 | Ska | Sessioner för minst adminstratörer ska avslutas efter inaktivitet. Beskriv hur kravet uppfylls. | **Uppfylld** | Sessioner avslutas vid inaktivitet, med kortare gräns för personal än för hyresgäster. Gränsen kontrolleras vid varje anrop. |
+| C.2.11 | Ska | Konton med administrativa eller utökade behörigheter ska skyddas med MFA. | **Uppfylld** | Engångskod krävs för samtliga personalroller och kan inte stängas av för dem. |
+| C.2.12 | Ska | Icke-personliga konton, exempelvis system-, service- och integrationskonton, ska begränsas till nödvändiga behörigheter och skyddas mot obehörig an… | **Uppfylld** | Integrationer loggar in som klient med scope-begränsade konton. Kontot är av typen service och kan inte logga in som en människa. Hemligheten kan bytas och kontot stängas av, vilket ogiltigförklarar utfärdade token direkt. |
+| C.2.13 | Ska | Lösningen ska uppdatera eller avsluta hyresgästens åtkomst när kund-, boende- eller avtalsrelationen ändras i fastighetssystemet. | **Kräver konfiguration** | Åtkomsten följer hyresförhållandet: när avtalet avslutas i fastighetssystemet avslutas åtkomsten vid nästa synkronisering. Kräver anslutning enligt A.1.8. |
+| C.3.1 | Ska | All kommunikation mellan lösningen och externa system, API:er och integrationskomponenter ska vara krypterad med TLS 1.2 eller högre, eller motsvar… | **Ingår i leveransen** | All kommunikation sker över TLS. Versionskrav och certifikat sätts i driftmiljön, som upphandlas inför driftsättning. HSTS är påslaget i produktionsläge. |
+| C.3.2 | Ska | API:er och integrationer ska kräva autentisering. Användarnamn, lösenord, tokens, API-nycklar eller motsvarande autentiseringsuppgifter får inte la… | **Uppfylld** | API:er och integrationer kräver autentisering. Hemligheter lagras hashade eller som referens till driftmiljön, och loggramverket tar bort kända känsliga fält innan raden skrivs. |
+| C.3.3 | Ska | Integrationer ska endast ha åtkomst till den information och de funktioner som krävs för tjänsten. | **Uppfylld** | Varje integrationskonto får bara de scope det behöver, och ett scope som inte tilldelats ger fel i stället för tyst nedgradering. |
+| C.3.4 | Ska | Lösningen ska kunna logga integrationsanrop och relevanta förändringar mellan lösningen och verksamhetssystemet. | **Uppfylld** | Integrationsanrop registreras i integration_events med riktning, utfall, svarstid och felmeddelande. |
+| C.3.5 | Ska | Leverantörens lösning ska hantera integrationsfel, avbrott och återkommande felaktiga anrop på ett kontrollerat sätt, så att tjänsten och anslutna … | **Uppfylld** | Fel ger växande fördröjning som planar ut. Utgående ändringar ligger kvar i kö tills källsystemet kvitterat. Tio tester prövar beteendet mot ett källsystem som svarar fel. |
+| C.3.6 | Ska | Lösningen ska säkerställa att användare endast kan läsa och påverka information som de är behöriga till. | **Uppfylld** | Behörigheten prövas på objektnivå. Fjorton tester begär det andra bolagets uppgifter med giltig session och rätt id, och får noll rader. |
+| C.3.7 | Ska | Information som skickas mellan appen och verksamhetssystem ska kunna kopplas till relevant användare, funktion eller händelse. | **Uppfylld** | Varje överföring bär referens till användare, funktion och händelse, och kopplas till källsystemets egen nyckel. |
+| C.3.8 | Ska | Information ska valideras innan data skickas till verksamhetssystemet. | **Uppfylld** | Indata valideras mot scheman innan något skrivs. En post som saknar ett fält skrivs inte alls. |
+| C.3.9 | Ska | Lösningen ska kunna logga förändringar och händelser som skickas till eller från verksamhetssystemet. | **Uppfylld** | Förändringar som skickas eller tas emot registreras med tidpunkt och utfall. |
+| C.3.10 | Ska | Lösningen ska säkerställa att information mellan appen och verksamhetssystemet hålls uppdaterad. | **Uppfylld** | Schemalagd synkronisering per datamängd, med färskhetsstämpel och tydlig markering när uppgifterna är gamla. |
+| C.3.11 | Ska | Lösningen ska kunna hantera tillfälliga fördröjningar, avbrott, misslyckade uppdateringar eller tillfälliga integrationsstörningar mellan appen och… | **Uppfylld** | Vid störning behålls senast lyckade tidpunkt, markören flyttas inte, och en post som inte gick att tolka skrivs inte in halvfärdig. |
+| C.3.12 | Ska | Om lokal cache används ska cachelagrad information skyddas mot obehörig åtkomst och raderas när den inte längre behövs. | **Uppfylld** | Servicearbetaren cachar bara programfilerna, aldrig svar från API:et. Ingen kunddata lagras på enheten. |
+| C.3.13 | Ska | Användaren ska informeras på ett tydligt sätt om en åtgärd inte kan genomföras eller om information inte är uppdaterad. | **Uppfylld** | Gränssnittet skriver ut när en datamängd aldrig hämtats eller är för gammal, i stället för att visa uppgifterna som aktuella. |
+| C.3.14 | Ska | Lösningen ska kontrollera behörighet på objekt- och funktionsnivå vid relevanta API-anrop, så att användare inte kan läsa, ändra eller skapa inform… | **Uppfylld** | Behörighet prövas på objekt- och funktionsnivå vid varje anrop, så att en användare inte kan nå annan hyresgäst, annat avtal, annat ärende eller annan bostad. |
+| C.4.1 | Ska | Lösningen ska logga säkerhetsrelaterade händelser, administrativa åtgärder, inloggningar och integrationshändelser. | **Uppfylld** | Säkerhetsrelaterade händelser, administrativa åtgärder, inloggningar och integrationshändelser loggas. Se docs/rutiner/loggning-och-overvakning.md. |
+| C.4.2 | Ska | Loggar ska skyddas mot obehörig åtkomst och manipulation. | **Uppfylld** | Applikationens databasroll saknar UPDATE och DELETE på säkerhetsloggen. Rättigheten är återkallad i databasen, inte kontrollerad i koden. |
+| C.4.3 | Ska | Leverantören ska kunna bistå beställaren med relevanta loggar vid incident eller felsökning. | **Leverantörsrutin** | Beställaren når säkerhetsloggen själv. Övriga loggar lämnas inom en arbetsdag från begäran, i maskinläsbart format. |
+| C.4.4 | Ska | Leverantören ska ha övervakning eller motsvarande förmåga för att upptäcka säkerhetsincidenter och avvikande beteenden i tjänsten. | **Leverantörsrutin** | Tröskelvärden för avvikande beteende är fastställda och underlaget finns i login_attempts och audit_log. Övervakningsverktyget är inte upphandlat. |
+| C.5.1 | Ska | Appen ska utvecklas och testas med hänsyn till etablerad god praxis för mobilappssäkerhet, exempelvis OWASP MASVS eller motsvarande. | **Leverantörsrutin** | Webbklienten följer motsvarande krav. OWASP MASVS blir tillämpligt för de nativa apparna och ingår i deras utveckling. |
+| C.5.2 | Ska | Skyddsvärd information får inte lagras okrypterat på mobil enhet. | **Uppfylld** | Ingen skyddsvärd information lagras okrypterat på enheten. Servicearbetaren cachar aldrig svar från API:et. |
+| C.5.3 | Ska | Skyddsvärd information ska inte exponeras i notifieringar, pushnotiser, cache, lokala loggar eller andra klientnära funktioner om det inte är nödvä… | **Uppfylld** | Pushnotisen säger att något hänt, inte vad. Detaljerna läses i appen efter inloggning. |
+| C.5.4 | Ska | Kommunikation mellan app och backend ska vara krypterad. | **Uppfylld** | All kommunikation mellan app och backend sker över TLS, med HSTS i produktionsläge. |
+| C.5.5 | Ska | Appen ska verifiera certifikat vid kommunikation mot backend och API:er. | **Uppfylld** | Webbläsarens certifikatkontroll gäller, och kan inte stängas av i klienten. BankID-anropen kontrollerar certifikat mot BankID:s CA. Certifikatnålning tillkommer i de nativa apparna. |
+| C.5.6 | Ska | Om lösningen tillåter uppladdning av filer eller bilder ska dessa hanteras på ett säkert sätt. Godkända filtyper och filstorlekar ska kunna begräns… | **Uppfylld** | Filtyper och storlek begränsas per fastighetsbolag. Innehållet kontrolleras mot sitt verkliga format, PDF med aktivt innehåll avvisas, och metadata rensas ur bilder. Filer nås bara av behöriga, genom en kontroll i backend. |
+| C.6.1 | Ska | Leverantören ska begränsa åtkomst till egenutvecklad kod, kundspecifika anpassningar, byggmiljöer och utvecklingsverktyg till behöriga personer. | **Leverantörsrutin** | Personliga konton med multifaktor till kod, byggkedja och hemligheter. Utvecklare har inte åtkomst till produktion. |
+| C.6.2 | Ska | Källkod och konfigurationer som används för tjänsten ska hanteras med versionskontroll eller motsvarande spårbar hantering. | **Uppfylld** | All kod och konfiguration i Git, med granskad sammanslagning. Databasens struktur ändras bara genom numrerade migreringar. |
+| C.6.3 | Ska | Leverantören ska säkerställa att utvecklings-, test- och produktionsmiljöer är separerade. | **Leverantörsrutin** | Utveckling, test och produktion delar varken databas, lagring eller hemligheter. Personuppgifter kopieras aldrig från produktion. |
+| C.6.5 | Ska | Leverantören ska ha möjlighet att återställa eller korrigera ändringar som orsakar allvarliga fel eller säkerhetsproblem i tjänsten. | **Leverantörsrutin** | Föregående version kan sättas i drift på minuter. Migreringar som rör befintlig data delas i tre steg, så att det går att gå tillbaka utan dataförlust. |
+| C.6.6 | Ska | Leverantören ska genomföra relevanta säkerhetstester vid större förändringar som påverkar tjänstens säkerhet, åtkomst, integrationer eller externa … | **Leverantörsrutin** | Förändring som rör autentisering, behörighet, kundseparering, filhantering, loggning eller externt gränssnitt får egen säkerhetsgenomgång och utökade tester. |
+| C.6.7 | Ska | Leverantören ska ha rutiner för att hantera upptäckta sårbarheter i egen kod, tredjepartskomponenter och driftmiljö. | **Leverantörsrutin** | Gäller egen kod, tredjepartskomponenter och driftmiljö, med samma klassning och tider som C.1.2. Ett bygge med känd kritisk sårbarhet i drift går inte vidare. |
+| C.7.1 | Ska | Leverantören ska ha dokumenterade rutiner för hantering av säkerhetsincidenter. | **Leverantörsrutin** | Sju steg från upptäckt till uppföljning, med klassning i tre nivåer. Se docs/rutiner/incidenthantering.md. |
+| C.7.2 | Ska | Säkerhetsincidenter som påverkar tjänsten, beställarens information eller integrationer ska rapporteras till beställaren utan onödigt dröjsmål. | **Leverantörsrutin** | Första besked inom 4 timmar vid allvarlig incident, även när bilden är ofullständig. Underlaget är anpassat för beställarens frist på 72 timmar. |
+| C.7.3 | Ska | Leverantören ska tillhandahålla kontaktvägar för incidenthantering och eskalering. | **Leverantörsrutin** | Kontaktvägar för normal ärendegång, incident under och utanför kontorstid, samt eskalering, med angivna svarstider. |
+| C.7.4 | Ska | Leverantören ska kunna hantera incidenter som påverkar tjänstens säkerhet eller tillgänglighet. | **Leverantörsrutin** | Namngivna roller med ersättare, beredskap utanför kontorstid, och årlig övning. Sessioner och integrationskonton kan stängas av direkt i tjänstens gränssnitt. |
+| C.7.5 | Ska | Leverantören ska dokumentera säkerhetsincidenter som påverkar tjänsten och kunna redovisa relevanta åtgärder för beställaren. | **Leverantörsrutin** | Varje incident dokumenteras med förlopp, berörd information, åtgärder och beslutade förbättringar. |
+| C.8.1 | Ska | Leverantören ska ha dokumenterade rutiner för backup och återställning. | **Leverantörsrutin** | Daglig fullständig kopia och kontinuerlig arkivering av transaktionsloggen, med mål för återställningstid och dataförlust. |
+| C.8.2 | Ska | Backuper ska skyddas mot obehörig åtkomst. | **Leverantörsrutin** | Backuper krypteras i vila, ligger skilt från databasen, och nås bara av driftansvarig med multifaktor. |
+| C.8.3 | Ska | Leverantören ska regelbundet testa återställning av backup eller motsvarande återställningsförmåga. | **Leverantörsrutin** | Automatisk provläsning varje vecka och fullständig återställningsövning varje år, med uppmätt tid mot målet. |
+| C.8.4 | Ska | Leverantören ska övervaka tjänstens kapacitet och prestanda i syfte att upptäcka störningar och säkerställa avtalad tillgänglighet. | **Leverantörsrutin** | Tröskelvärden för svarstid, felandel, anslutningar, diskutrymme och köer är fastställda. Tjänsten har beredskapskontroller för ändamålet. |
+| C.8.5 | Ska | Leverantören ska ha förmåga att hantera driftstörningar i de delar av tjänsten som krävs för att upprätthålla avtalad tillgänglighet. | **Leverantörsrutin** | Flera instanser, beredskapskopia av databasen, och köer med omförsök så att en störning fördröjer men inte tappar uppgifter. |
+| C.9.1 | Ska | Leverantören ska på begäran kunna redovisa dokumentation som visar hur avtalade säkerhetskrav efterlevs. | **Leverantörsrutin** | Underlag lämnas inom tio arbetsdagar. Vad som finns att visa framgår av docs/rutiner/uppfoljning.md. |
+| C.9.2 | Ska | Leverantören ska kunna redovisa genomförda säkerhetsåtgärder och förbättringar som är relevanta för tjänsten. | **Leverantörsrutin** | Årlig säkerhetsredogörelse med genomförda åtgärder, incidenter, testresultat och planerat arbete. |
+| C.9.3 | Ska | Uppföljning ska i första hand baseras på dokumentation, självdeklarationer, standardiserade underlag, certifieringar, revisioner eller motsvarande. | **Leverantörsrutin** | Uppföljningen bygger på dokumentation, självdeklaration och testrapporter. Certifiering enligt ISO 27001 finns inte och skulle behöva avtalas särskilt. |
+| C.9.4 | Ska | Leverantören ska medverka vid uppföljning av säkerhetskrav vid större förändring, allvarlig incident eller införande av ny väsentlig underleverantör. | **Leverantörsrutin** | Fördjupad uppföljning vid större förändring, allvarlig incident eller ny väsentlig underleverantör. |
+| C.10.1 | Ska | AI-funktioner får inte användas för att fatta beslut eller ge automatiserade rekommendationer som påverkar hyresgäster, ärenden eller Botkyrkabygge… | **Uppfylld** | Ingen språkmodell finns i produkten. Prioritering, jourinformation och styrning av ärenden avgörs av regler som går att läsa och testa. Villkor för framtida införande i docs/rutiner/ai-styrning.md. |
+| C.10.2 | Ska | Information från beställaren, hyresgäster eller andra användare får inte användas för träning eller generell utveckling av AI-modeller utan beställ… | **Leverantörsrutin** | Beställarens information används inte för att träna eller utveckla AI-modeller. Villkoret gäller även framtida modelleverantörer och kräver skriftligt godkännande. |
