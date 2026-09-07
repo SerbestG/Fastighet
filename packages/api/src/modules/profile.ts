@@ -8,11 +8,24 @@ import {
 } from '@hemvist/shared';
 import { audit } from '../core/audit.js';
 import { db, requireAuth } from '../core/context.js';
-import { conflict } from '../core/errors.js';
+import { badRequest, conflict } from '../core/errors.js';
 import { parse } from '../core/validate.js';
 import { sequence } from '../core/sequence.js';
+import { vapidKeys } from '../core/webpush.js';
+import { z } from 'zod';
 
 /** Profil, kontaktuppgifter, notisinställningar och export av egna uppgifter. */
+
+/** Prenumeration från webbläsarens Push API. */
+const pushSubscriptionSchema = z.object({
+  endpoint: z.string().trim().url().max(2000),
+  keys: z.object({
+    p256dh: z.string().trim().min(20).max(200),
+    auth: z.string().trim().min(10).max(100),
+  }),
+  deviceLabel: z.string().trim().max(80).optional(),
+});
+
 export async function registerProfileRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/me', async (request) => {
     const auth = requireAuth(request);
@@ -178,6 +191,87 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
         auth.userId,
         request.params.token,
       ]);
+      return { ok: true };
+    });
+  });
+
+  /* ------------------------------------------------------- webbpush --- */
+
+  /** Den publika VAPID-nyckeln, som webbläsaren behöver för att prenumerera. */
+  app.get('/api/push/public-key', async () => {
+    const keys = vapidKeys();
+    // Utan nycklar finns ingen push. Klienten ska då inte fråga om lov.
+    return { publicKey: keys?.publicKey ?? null };
+  });
+
+  app.get('/api/me/push-subscriptions', async (request) => {
+    const auth = requireAuth(request);
+    return db(request, async (client) => {
+      const result = await client.query(
+        `select id, device_label, created_at, last_success_at
+           from web_push_subscriptions where user_id = $1 order by created_at desc`,
+        [auth.userId],
+      );
+      // Varken adress eller nyckel lämnas ut igen.
+      return { subscriptions: result.rows };
+    });
+  });
+
+  app.post('/api/me/push-subscriptions', async (request) => {
+    const auth = requireAuth(request);
+    const input = parse(pushSubscriptionSchema, request.body);
+    if (!vapidKeys()) throw badRequest('Pushnotiser är inte påslagna i den här miljön.');
+
+    return db(request, async (client) => {
+      await client.query(
+        `insert into web_push_subscriptions
+           (org_id, user_id, endpoint, p256dh, auth_secret, device_label, user_agent)
+         values ($1,$2,$3,$4,$5,$6,$7)
+         on conflict (endpoint) do update
+           set user_id = excluded.user_id, p256dh = excluded.p256dh,
+               auth_secret = excluded.auth_secret, device_label = excluded.device_label,
+               failure_count = 0`,
+        [
+          auth.orgId,
+          auth.userId,
+          input.endpoint,
+          input.keys.p256dh,
+          input.keys.auth,
+          input.deviceLabel ?? null,
+          request.headers['user-agent'] ?? null,
+        ],
+      );
+      // Varken adress eller nycklar hamnar i säkerhetsloggen.
+      await audit(request, { action: 'profile.push_subscription_added' });
+      return { ok: true };
+    });
+  });
+
+  /**
+   * Avregistrerar den enhet som anropar. Adressen skickas in av klienten, som
+   * redan har den – servern lämnar aldrig ut den igen.
+   */
+  app.post('/api/me/push-subscriptions/remove', async (request) => {
+    const auth = requireAuth(request);
+    const input = parse(z.object({ endpoint: z.string().trim().url().max(2000) }), request.body);
+    return db(request, async (client) => {
+      await client.query('delete from web_push_subscriptions where user_id = $1 and endpoint = $2', [
+        auth.userId,
+        input.endpoint,
+      ]);
+      await audit(request, { action: 'profile.push_subscription_removed' });
+      return { ok: true };
+    });
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/me/push-subscriptions/:id', async (request) => {
+    const auth = requireAuth(request);
+    return db(request, async (client) => {
+      await client.query('delete from web_push_subscriptions where id = $1 and user_id = $2', [
+        request.params.id,
+        auth.userId,
+      ]);
+      await audit(request, { action: 'profile.push_subscription_removed' });
       return { ok: true };
     });
   });

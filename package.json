@@ -26,7 +26,8 @@
     "dev:api": "npm run dev -w @hemvist/api",
     "dev:web": "npm run dev -w @hemvist/web",
     "start": "npm run start -w @hemvist/api",
-    "e2e": "node e2e/resident.mjs && node e2e/staff.mjs && node e2e/contractor.mjs && node e2e/image-resize.mjs"
+    "e2e": "node e2e/resident.mjs && node e2e/staff.mjs && node e2e/contractor.mjs && node e2e/image-resize.mjs",
+    "push:keys": "npm run push:keys -w @hemvist/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

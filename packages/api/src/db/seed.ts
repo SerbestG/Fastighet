@@ -711,7 +711,7 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
     { kind: 'sso', name: 'Microsoft Entra ID', status: 'requires_configuration', notes: 'OpenID Connect. Kräver appregistrering i kundens katalog.' },
     { kind: 'email', name: 'E-postutskick', status: 'requires_configuration', notes: 'SMTP-uppgifter saknas. Utgående e-post köas tills tjänsten konfigurerats.' },
     { kind: 'sms', name: 'SMS-utskick', status: 'planned', notes: 'Kräver avtal med SMS-operatör.' },
-    { kind: 'push', name: 'Pushnotiser', status: 'requires_configuration', notes: 'Kräver nycklar för APNs och FCM.' },
+    { kind: 'push', name: 'Pushnotiser', status: 'requires_configuration', notes: 'Webbpush fungerar utan extern leverantör så snart VAPID-nycklar finns i miljön. APNs och FCM krävs först för de nativa apparna.' },
     { kind: 'payments', name: 'Betallösning', status: 'planned', notes: 'Ingen betalning sker i appen förrän avtal och integration finns.' },
     { kind: 'e_signing', name: 'Digital signering', status: 'planned', notes: 'Kräver avtal med signeringsleverantör.' },
     { kind: 'finance', name: 'Ekonomisystem', status: 'requires_configuration', notes: 'Avier importeras i dag som fil. Direktintegration kräver konfiguration.' },

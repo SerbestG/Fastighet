@@ -81,6 +81,17 @@ export const config = {
    * BankID. Utan certifikat och nyckel finns ingen anslutning. Simulatorn är
    * avsedd för demonstration och test och stängs av i produktion (krav C.2.1).
    */
+  /**
+   * Web Push. Nycklarna ägs av tjänsten och skapas en gång med
+   * `npm run push:keys`. Utan nycklar går inga pushnotiser ut (krav B.1.5).
+   */
+  push: {
+    vapidPublicKey: env.VAPID_PUBLIC_KEY ?? null,
+    vapidPrivateKey: env.VAPID_PRIVATE_KEY ?? null,
+    subject: env.VAPID_SUBJECT ?? 'mailto:drift@hemvist.example',
+    ttlSeconds: num('PUSH_TTL_SECONDS', 3600),
+  },
+
   bankid: {
     baseUrl: env.BANKID_BASE_URL ?? 'https://appapi2.bankid.com',
     certPath: env.BANKID_CERT_PATH ?? null,

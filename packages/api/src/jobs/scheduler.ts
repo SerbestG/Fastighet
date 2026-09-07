@@ -4,6 +4,7 @@ import { getPool, withOrg } from '../db/pool.js';
 import { deliverNotice } from '../modules/notices.js';
 import { notify } from '../core/notify.js';
 import { resolveAudienceUsers } from '../core/audience.js';
+import { WebPushError, sendPush, vapidKeys } from '../core/webpush.js';
 
 /**
  * Bakgrundsjobb.
@@ -249,6 +250,118 @@ const applyRetention: Job = {
   },
 };
 
+
+/**
+ * Levererar köade pushnotiser (krav B.1.5).
+ *
+ * Varje körad rad går ut till alla enheter användaren registrerat. En
+ * prenumeration som push-tjänsten säger är borta tas bort direkt, så att kön
+ * inte fylls av enheter som inte finns.
+ */
+const deliverWebPush: Job = {
+  name: 'deliver_web_push',
+  run: async (log) => {
+    if (!vapidKeys()) return 0;
+    return forEachOrg(async (orgId) =>
+      withOrg({ orgId }, async (client) => {
+        const due = await client.query<{
+          id: string;
+          recipient: string;
+          payload: { title: string; body: string; route: string | null; id: string | null };
+          attempts: number;
+        }>(
+          `select id, recipient, payload, attempts from outbound_queue
+            where channel = 'push' and status = 'pending' and attempts < 5
+            order by created_at limit 100`,
+        );
+
+        let delivered = 0;
+        for (const row of due.rows) {
+          const subscriptions = await client.query<{
+            id: string;
+            endpoint: string;
+            p256dh: string;
+            auth_secret: string;
+          }>(
+            'select id, endpoint, p256dh, auth_secret from web_push_subscriptions where user_id = $1',
+            [row.recipient],
+          );
+
+          if (!subscriptions.rowCount) {
+            await client.query(
+              `update outbound_queue set status = 'failed', attempts = attempts + 1,
+                      last_error = 'ingen registrerad enhet', updated_at = now()
+                where id = $1`,
+              [row.id],
+            );
+            continue;
+          }
+
+          let anySucceeded = false;
+          let lastError: string | null = null;
+
+          for (const subscription of subscriptions.rows) {
+            try {
+              await sendPush(
+                {
+                  endpoint: subscription.endpoint,
+                  p256dh: subscription.p256dh,
+                  auth: subscription.auth_secret,
+                },
+                JSON.stringify(row.payload),
+              );
+              anySucceeded = true;
+              await client.query(
+                'update web_push_subscriptions set last_success_at = now(), failure_count = 0 where id = $1',
+                [subscription.id],
+              );
+            } catch (error) {
+              lastError = (error as Error).message;
+              if (error instanceof WebPushError && error.permanent) {
+                // Enheten finns inte längre hos push-tjänsten.
+                await client.query('delete from web_push_subscriptions where id = $1', [subscription.id]);
+              } else {
+                await client.query(
+                  `update web_push_subscriptions
+                      set last_failure_at = now(), failure_count = failure_count + 1
+                    where id = $1`,
+                  [subscription.id],
+                );
+              }
+            }
+          }
+
+          if (anySucceeded) {
+            await client.query(
+              `update outbound_queue set status = 'sent', attempts = attempts + 1,
+                      sent_at = now(), updated_at = now() where id = $1`,
+              [row.id],
+            );
+            await client.query(
+              `update notifications set status = 'delivered', sent_at = now(), delivered_at = now()
+                where id = (select notification_id from outbound_queue where id = $1)`,
+              [row.id],
+            );
+            delivered += 1;
+          } else {
+            const attempts = row.attempts + 1;
+            await client.query(
+              `update outbound_queue
+                  set status = case when $2 >= 5 then 'failed' else 'pending' end,
+                      attempts = $2, last_error = $3, updated_at = now()
+                where id = $1`,
+              [row.id, attempts, lastError],
+            );
+          }
+        }
+
+        if (delivered) log.info({ delivered }, 'pushnotiser levererade');
+        return delivered;
+      }),
+    );
+  },
+};
+
 const JOBS: Job[] = [
   publishScheduledNotices,
   unpublishExpiredNotices,
@@ -258,6 +371,7 @@ const JOBS: Job[] = [
   expireAccessGrants,
   revokeExpiredSessions,
   applyRetention,
+  deliverWebPush,
 ];
 
 export function startScheduler(log: FastifyBaseLogger): () => void {

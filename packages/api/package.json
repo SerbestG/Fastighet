@@ -13,7 +13,8 @@
     "db:seed": "tsx src/db/cli.ts seed",
     "db:reset": "tsx src/db/cli.ts reset",
     "openapi": "tsx src/openapi/emit.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "push:keys": "tsx src/db/keys.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

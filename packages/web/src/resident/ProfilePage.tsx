@@ -6,6 +6,12 @@ import { useI18n } from '../lib/i18n.js';
 import { useToast } from '../lib/toast.js';
 import { Banner, Button, Field, Input, Sheet } from '../components/ui.js';
 import { DownloadIcon, ShieldIcon } from '../components/icons.js';
+import {
+  type PushState,
+  pushState,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '../lib/push.js';
 
 /** Kontaktuppgifter, språk, notisinställningar och egna uppgifter. */
 export function ProfilePage() {
@@ -19,6 +25,23 @@ export function ProfilePage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '' });
+
+  const [push, setPush] = useState<PushState>('unsupported');
+  const [pushPending, setPushPending] = useState(false);
+
+  // Enhetens nuvarande läge läses en gång när sidan öppnas.
+  useEffect(() => {
+    void pushState().then(setPush);
+  }, []);
+
+  const togglePush = async (on: boolean) => {
+    setPushPending(true);
+    try {
+      setPush(on ? await subscribeToPush() : await unsubscribeFromPush());
+    } finally {
+      setPushPending(false);
+    }
+  };
 
   useEffect(() => {
     if (!me) return;
@@ -158,6 +181,29 @@ export function ProfilePage() {
       <section className="stack stack-3">
         <h2 className="section-title">{t('profile.notifications')}</h2>
         <p className="small muted">{t('profile.notificationsHelp')}</p>
+
+        {/*
+          Pushnotiser kräver att den här enheten registreras. Valet gäller
+          enheten, medan ämnesvalen nedan gäller kontot (krav B.1.7).
+        */}
+        <div className="card stack stack-2">
+          <div className="row-between">
+            <div>
+              <div className="strong">Notiser på den här enheten</div>
+              <div className="small muted">{pushDescription(push)}</div>
+            </div>
+            {push === 'subscribed' ? (
+              <Button size="sm" variant="ghost" onClick={() => void togglePush(false)} loading={pushPending}>
+                Stäng av
+              </Button>
+            ) : push === 'unsubscribed' ? (
+              <Button size="sm" onClick={() => void togglePush(true)} loading={pushPending}>
+                Slå på
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
         <div className="card stack stack-3">
           {NOTIFICATION_TOPICS.map((topic) => {
             const preference = me.notificationPreferences.find((item) => item.topic === topic);
@@ -269,4 +315,20 @@ function defaultChannels(topic: string): string[] {
   if (topic === 'invoices' || topic === 'moving') return ['inapp', 'email'];
   if (topic === 'news' || topic === 'surveys') return ['inapp'];
   return ['inapp', 'push'];
+}
+
+/** Kort besked om vad som gäller för enheten just nu. */
+function pushDescription(state: PushState): string {
+  switch (state) {
+    case 'subscribed':
+      return 'Den här enheten får notiser. Innehållet är kortfattat; detaljerna finns i appen.';
+    case 'unsubscribed':
+      return 'Slå på för att få besked direkt när något händer.';
+    case 'denied':
+      return 'Webbläsaren blockerar notiser för appen. Ändra det i webbläsarens inställningar.';
+    case 'unavailable':
+      return 'Pushnotiser är inte påslagna i den här miljön.';
+    default:
+      return 'Den här enheten stödjer inte pushnotiser.';
+  }
 }

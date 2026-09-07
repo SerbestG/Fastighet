@@ -1,6 +1,7 @@
 import type { NotificationChannel, NotificationTopic } from '@hemvist/shared';
 import { MANDATORY_TOPICS } from '@hemvist/shared';
 import type pg from 'pg';
+import { vapidKeys } from './webpush.js';
 
 /**
  * Notiser.
@@ -112,7 +113,10 @@ export async function notify(client: pg.PoolClient, input: NotifyInput): Promise
       }
 
       const integrationKind = CHANNEL_INTEGRATION[channel as 'push' | 'email' | 'sms'];
-      const integrationOk = connected.has(integrationKind);
+      // Webbpush kräver ingen extern leverantör – nycklarna ägs av tjänsten.
+      // Kanalen är därför användbar så snart VAPID-nycklarna finns.
+      const integrationOk =
+        channel === 'push' ? vapidKeys() !== null || connected.has(integrationKind) : connected.has(integrationKind);
       await client.query(
         `insert into outbound_queue (org_id, notification_id, channel, recipient, payload, status)
          values ($1,$2,$3,$4,$5,$6)`,
@@ -170,12 +174,19 @@ async function recipientFor(
     );
     return result.rows[0]?.phone ?? null;
   }
-  const result = await client.query<{ token: string }>(
-    'select token from push_tokens where user_id = $1 order by last_seen_at desc limit 1',
+  // För push är mottagaren personen, inte en enskild enhet: notisen går ut till
+  // alla enheter användaren har registrerat. Varken adress eller nyckel hamnar i
+  // kön, och därmed inte heller i loggen.
+  const web = await client.query<{ count: number }>(
+    'select count(*)::int as count from web_push_subscriptions where user_id = $1',
     [userId],
   );
-  // Pushtoken loggas aldrig; endast en referens sparas i kön.
-  return result.rows[0]?.token ?? null;
+  const native = await client.query<{ count: number }>(
+    'select count(*)::int as count from push_tokens where user_id = $1',
+    [userId],
+  );
+  const devices = (web.rows[0]?.count ?? 0) + (native.rows[0]?.count ?? 0);
+  return devices > 0 ? userId : null;
 }
 
 async function connectedChannels(client: pg.PoolClient, orgId: string): Promise<Set<string>> {
