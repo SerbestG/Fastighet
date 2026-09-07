@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import type pg from 'pg';
 import { config } from '../config.js';
 import { AppError } from './errors.js';
+import { inspectPdf, stripMetadata } from './media.js';
 import { scanUpload } from './scanning.js';
 
 /**
@@ -58,16 +59,51 @@ function safeName(name: string): string {
   return base.replace(/[^\p{L}\p{N}._ -]/gu, '_').slice(0, 120) || 'fil';
 }
 
+/** Gränser som gäller för en viss organisation, med plattformens som tak. */
+export interface UploadLimits {
+  maxFileBytes: number;
+  allowedMimeTypes: string[];
+}
+
+/**
+ * Beställarens egna gränser, begränsade av plattformens. En organisation kan
+ * alltså strama åt men aldrig vidga utöver det plattformen tillåter.
+ */
+export async function uploadLimits(client: pg.PoolClient): Promise<UploadLimits> {
+  const result = await client.query<{
+    upload_allowed_mime_types: string[];
+    upload_max_file_bytes: number | null;
+  }>('select upload_allowed_mime_types, upload_max_file_bytes from organisations limit 1');
+  const row = result.rows[0];
+
+  const allowed = row?.upload_allowed_mime_types?.length
+    ? row.upload_allowed_mime_types.filter((type) => config.storage.allowedMimeTypes.includes(type))
+    : config.storage.allowedMimeTypes;
+
+  return {
+    maxFileBytes: Math.min(row?.upload_max_file_bytes ?? config.storage.maxFileBytes, config.storage.maxFileBytes),
+    allowedMimeTypes: allowed,
+  };
+}
+
 /** Kontrollerar storlek, tillåten typ och att innehållet matchar den angivna typen. */
-export function inspect(buffer: Buffer, declaredMime: string, originalName: string): string {
+export function inspect(
+  buffer: Buffer,
+  declaredMime: string,
+  originalName: string,
+  limits: UploadLimits = {
+    maxFileBytes: config.storage.maxFileBytes,
+    allowedMimeTypes: config.storage.allowedMimeTypes,
+  },
+): string {
   if (buffer.length === 0) {
     throw new AppError('validation_error', 'Filen är tom.');
   }
-  if (buffer.length > config.storage.maxFileBytes) {
+  if (buffer.length > limits.maxFileBytes) {
     throw new AppError('payload_too_large');
   }
   const normalised = declaredMime.split(';')[0]!.trim().toLowerCase();
-  if (!config.storage.allowedMimeTypes.includes(normalised)) {
+  if (!limits.allowedMimeTypes.includes(normalised)) {
     throw new AppError('unsupported_media_type', `Filtypen ${normalised} är inte tillåten.`);
   }
 
@@ -102,16 +138,33 @@ export async function storeFile(
     originalName: string;
   },
 ): Promise<StoredFile> {
-  const mimeType = inspect(params.buffer, params.mimeType, params.originalName);
+  const limits = await uploadLimits(client);
+  const mimeType = inspect(params.buffer, params.mimeType, params.originalName, limits);
+
+  // En PDF som startar program eller kör skript vid öppning avvisas (krav C.5.6).
+  if (mimeType === 'application/pdf') {
+    const findings = inspectPdf(params.buffer);
+    if (findings.length) {
+      throw new AppError('unsupported_media_type', 'PDF-filen innehåller aktivt innehåll och kan inte tas emot.', {
+        internal: { keywords: findings.map((f) => f.keyword) },
+      });
+    }
+  }
+
+  // Metadata som position och enhetsmodell behövs inte för en felanmälan och
+  // följer inte med in i systemet.
+  const cleaned = stripMetadata(params.buffer, mimeType);
+  const buffer = cleaned.buffer;
+
   // Granskning hos en konfigurerad skanningstjänst. En fil som inte kunnat
   // granskas sparas i karantän och går inte att hämta.
-  const scan = await scanUpload(params.buffer, params.originalName);
-  const checksum = createHash('sha256').update(params.buffer).digest('hex');
+  const scan = await scanUpload(buffer, params.originalName);
+  const checksum = createHash('sha256').update(buffer).digest('hex');
   const storageKey = `${params.orgId}/${new Date().getFullYear()}/${randomUUID()}`;
 
   const absolute = resolveStoragePath(storageKey);
   await mkdir(dirname(absolute), { recursive: true });
-  await writeFile(absolute, params.buffer, { mode: 0o600 });
+  await writeFile(absolute, buffer, { mode: 0o600 });
 
   const result = await client.query<{ id: string }>(
     `insert into files (org_id, storage_key, original_name, mime_type, size_bytes, checksum_sha256,
@@ -123,10 +176,11 @@ export async function storeFile(
       storageKey,
       safeName(params.originalName),
       mimeType,
-      params.buffer.length,
+      buffer.length,
       checksum,
       scan.scanStatus,
-      scan.detail,
+      // Vad som rensades bort redovisas i filens granskningsanteckning.
+      cleaned.removed.length ? `${scan.detail}; rensade ${cleaned.removed.join(', ')}` : scan.detail,
       params.uploadedBy,
     ],
   );
@@ -136,7 +190,7 @@ export async function storeFile(
     storageKey,
     originalName: safeName(params.originalName),
     mimeType,
-    sizeBytes: params.buffer.length,
+    sizeBytes: buffer.length,
     checksum,
     scanStatus: scan.scanStatus,
   };
