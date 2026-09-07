@@ -1,6 +1,7 @@
 import { useI18n } from '../lib/i18n.js';
 import { useQuery } from '../lib/useQuery.js';
 import { EmptyState, QueryBoundary } from '../components/ui.js';
+import { MirroredPages } from './MirroredPages.js';
 import { LeafIcon, PinIcon } from '../components/icons.js';
 
 interface AreaData {
@@ -79,6 +80,9 @@ export function AreaPage() {
           </>
         )}
       </QueryBoundary>
+
+      {/* Innehåll som förvaltningen speglat från webbplatsen (krav B.1.26). */}
+      <MirroredPages section="area" />
     </div>
   );
 }

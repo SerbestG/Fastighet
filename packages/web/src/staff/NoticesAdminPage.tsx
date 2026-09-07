@@ -20,6 +20,7 @@ import {
   Textarea,
 } from '../components/ui.js';
 import { MegaphoneIcon, PlusIcon } from '../components/icons.js';
+import { MirroredPagesAdmin } from './MirroredPagesAdmin.js';
 
 const KIND_LABEL: Record<string, string> = {
   water_shutoff: 'Vattenavstängning',
@@ -175,6 +176,9 @@ export function NoticesAdminPage() {
           }}
         />
       ) : null}
+
+      {/* Speglat innehåll från webbplatsen (krav B.1.26). */}
+      <MirroredPagesAdmin />
     </div>
   );
 }

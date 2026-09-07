@@ -212,8 +212,10 @@ describe('Hyresgästens resa', () => {
     }>(resident, '/api/me', { phone: '070-999 88 77' });
     expect(updated.status).toBe(200);
     expect(updated.body.user.phone).toBe('070-999 88 77');
-    // Överföringen till fastighetssystemet kräver en ansluten integration.
-    expect(updated.body.propertySystemSync.status).toBe('unavailable');
+    // Ändringen läggs i kön direkt. Utan ansluten integration väntar den där
+    // i stället för att gå förlorad, och svaret säger det (krav B.1.27).
+    expect(updated.body.propertySystemSync.status).toBe('waiting');
+    expect(updated.body.propertySystemSync.reason).toMatch(/kö/i);
   });
 
   it('17. genomför ett steg i inflyttningen', async () => {

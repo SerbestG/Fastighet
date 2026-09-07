@@ -121,6 +121,11 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
         ],
       );
 
+      const externalRef = await client.query<{ external_ref: string | null }>(
+        'select external_ref from users where id = $1',
+        [auth.userId],
+      );
+
       await audit(request, {
         action: 'profile.updated',
         entityType: 'user',
@@ -129,21 +134,56 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
         detail: { fields: Object.keys(input) },
       });
 
-      // Uppdaterade kontaktuppgifter ska föras vidare till fastighetssystemet
-      // (krav B.1.27). Utan ansluten integration köas ingen överföring – kravet
-      // uppfylls först när integrationen är i status "Ansluten".
+      // Uppdaterade kontaktuppgifter förs vidare till fastighetssystemet
+      // (krav B.1.27). Ändringen läggs i den utgående kön oavsett om
+      // integrationen är ansluten just nu – kön behåller raden tills systemet
+      // kvitterat, så att en ändring inte tappas under en störning (krav C.3.11).
+      const contactChanged =
+        input.email !== undefined || input.phone !== undefined || input.firstName !== undefined ||
+        input.lastName !== undefined;
+
       const integration = await client.query<{ status: string }>(
-        "select status from integrations where org_id = $1 and kind = 'property_system' limit 1",
-        [auth.orgId],
+        "select status from integrations where kind = 'property_system' limit 1",
       );
-      const syncStatus = integration.rows[0]?.status ?? 'planned';
+      const connected = ['connected', 'sandbox'].includes(integration.rows[0]?.status ?? '');
+
+      if (contactChanged) {
+        const updated = result.rows[0] as {
+          email: string;
+          first_name: string;
+          last_name: string;
+          phone: string | null;
+        };
+        await client.query(
+          `insert into integration_outbox
+             (org_id, kind, entity_type, entity_id, payload, status, next_attempt_at)
+           values ($1,'customer.contact_updated','user',$2,$3::jsonb,$4, now())`,
+          [
+            auth.orgId,
+            auth.userId,
+            JSON.stringify({
+              externalRef: externalRef.rows[0]?.external_ref ?? null,
+              email: updated.email,
+              phone: updated.phone,
+              firstName: updated.first_name,
+              lastName: updated.last_name,
+            }),
+            connected ? 'pending' : 'blocked_no_integration',
+          ],
+        );
+      }
 
       return {
         user: result.rows[0],
-        propertySystemSync:
-          syncStatus === 'connected'
+        propertySystemSync: !contactChanged
+          ? { status: 'not_needed' }
+          : connected
             ? { status: 'queued' }
-            : { status: 'unavailable', reason: 'Integrationen mot fastighetssystemet är inte ansluten.' },
+            : {
+                status: 'waiting',
+                reason:
+                  'Fastighetssystemet är inte anslutet. Ändringen ligger kvar i kö och skickas när anslutningen finns.',
+              },
       };
     });
   });
