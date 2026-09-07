@@ -15,7 +15,7 @@ describe('Formulärfält', () => {
     );
 
     const input = screen.getByLabelText('E-postadress');
-    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
 
     const described = (input.getAttribute('aria-describedby') ?? '').split(' ');
     const texts = described.map((id) => document.getElementById(id)?.textContent ?? '');
@@ -116,7 +116,7 @@ describe('Flikar', () => {
     );
     const list = screen.getByRole('tablist', { name: 'Filtrera' });
     const tabs = within(list).getAllByRole('tab');
-    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+    expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
 
     await userEvent.tab();
     await userEvent.tab();

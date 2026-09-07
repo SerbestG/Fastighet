@@ -46,10 +46,17 @@ async function decode(file: File): Promise<ImageBitmap | HTMLImageElement | null
     return await new Promise<HTMLImageElement | null>((resolve) => {
       const url = URL.createObjectURL(file);
       const image = new Image();
+      let settled = false;
       const done = (result: HTMLImageElement | null) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
         URL.revokeObjectURL(url);
         resolve(result);
       };
+      // Vissa vyer utlöser varken onload eller onerror för innehåll de inte
+      // känner igen. Utan tidsgräns skulle uppladdningen då aldrig bli av.
+      const timer = window.setTimeout(() => done(null), 3000);
       image.onload = () => done(image);
       image.onerror = () => done(null);
       image.src = url;
