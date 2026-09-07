@@ -26,6 +26,7 @@ import { NotificationsPage } from './NotificationsPage.js';
 import { MorePage } from './MorePage.js';
 import { ContactPage } from './ContactPage.js';
 import { AccessPage } from './AccessPage.js';
+import { flushUsage, track } from '../lib/usage.js';
 
 /**
  * Hyresgästens skal: en fast rubrikrad och en flik-rad längst ned.
@@ -41,6 +42,17 @@ export function ResidentShell() {
   const [online, setOnline] = useState(true);
 
   useEffect(() => watchConnection(setOnline), []);
+
+  // Vilka delar av appen som används registreras utan att spara vem (krav A.3.14).
+  useEffect(() => {
+    track('view', location.pathname.replace(/\/[0-9a-f-]{16,}/g, '/:id'));
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const send = () => flushUsage();
+    window.addEventListener('pagehide', send);
+    return () => window.removeEventListener('pagehide', send);
+  }, []);
 
   const organisation = me?.organisation;
   const initials = (organisation?.display_name ?? 'H').slice(0, 1).toUpperCase();

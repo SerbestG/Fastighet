@@ -243,6 +243,12 @@ const applyRetention: Job = {
               [policy.retain_days],
             );
             affected += result.rowCount ?? 0;
+          } else if (policy.entity === 'usage_event') {
+            const result = await client.query(
+              'delete from usage_events where day < current_date - $1::int',
+              [policy.retain_days],
+            );
+            affected += result.rowCount ?? 0;
           }
           // Gallring av ärenden och säkerhetslogg kräver särskild hantering och
           // körs som en separat, granskad åtgärd.

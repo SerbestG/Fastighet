@@ -14,6 +14,7 @@ import {
   PhoneIcon,
   UserIcon,
 } from '../components/icons.js';
+import { track } from '../lib/usage.js';
 
 /** Samlar det som inte får plats i flikraden, i stället för att korta ned namnen. */
 export function MorePage() {
@@ -41,7 +42,13 @@ export function MorePage() {
 
       <div className="card card-flush">
         {items.map((item) => (
-          <Link className="list-item" to={item.to} key={item.to}>
+          <Link
+            className="list-item"
+            to={item.to}
+            key={item.to}
+            // Vilken menypost som används registreras utan att spara vem (krav A.3.14).
+            onClick={() => track('menu', item.to)}
+          >
             {item.icon}
             <span className="grow list-title">{item.label}</span>
             <ChevronRight size={18} className="chevron" />

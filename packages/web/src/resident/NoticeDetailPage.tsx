@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApiError, api } from '../lib/api.js';
 import { useI18n } from '../lib/i18n.js';
 import { useQuery } from '../lib/useQuery.js';
@@ -7,6 +7,7 @@ import { useToast } from '../lib/toast.js';
 import { formatDateTime } from '../lib/format.js';
 import { Banner, Button, DefinitionList, Pill, QueryBoundary } from '../components/ui.js';
 import { CheckIcon, ChevronLeft } from '../components/icons.js';
+import { track } from '../lib/usage.js';
 
 interface NoticeDetail {
   notice: {
@@ -34,6 +35,11 @@ export function NoticeDetailPage() {
   const toast = useToast();
   const state = useQuery<NoticeDetail>(id ? `/api/notices/${id}` : null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    // Vilken nyhet som lästs registreras utan att spara vem (krav A.3.14).
+    if (id) track('notice', id);
+  }, [id]);
 
   const acknowledge = async () => {
     if (!id) return;

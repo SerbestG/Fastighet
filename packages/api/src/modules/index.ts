@@ -20,6 +20,7 @@ import { registerProfileRoutes } from './profile.js';
 import { registerPropertyRoutes } from './properties.js';
 import { registerSsoRoutes } from './sso.js';
 import { registerSurveyRoutes } from './surveys.js';
+import { registerUsageRoutes } from './usage.js';
 import { registerWorkOrderRoutes } from './workorders.js';
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -44,5 +45,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await registerPropertyRoutes(app);
   await registerWorkOrderRoutes(app);
   await registerAnalyticsRoutes(app);
+  await registerUsageRoutes(app);
   await registerAdminRoutes(app);
 }

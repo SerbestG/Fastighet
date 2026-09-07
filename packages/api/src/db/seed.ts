@@ -757,6 +757,7 @@ async function seedOrg(client: pg.PoolClient, bp: OrgBlueprint, passwordHash: st
     { entity: 'notification', retain_days: 365, action: 'delete', description: 'Notiser rensas efter ett år.' },
     { entity: 'session', retain_days: 90, action: 'delete', description: 'Avslutade sessioner rensas efter 90 dagar.' },
     { entity: 'login_attempt', retain_days: 180, action: 'delete', description: 'Inloggningsförsök sparas ett halvår.' },
+    { entity: 'usage_event', retain_days: 400, action: 'delete', description: 'Användningsstatistik sparas 13 månader, för jämförelse mellan år.' },
   ]) {
     await insert(client, 'retention_policies', { org_id: orgId, ...policy });
   }

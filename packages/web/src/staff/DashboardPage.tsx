@@ -5,6 +5,7 @@ import { useQuery } from '../lib/useQuery.js';
 import { longDate, timeRange } from '../lib/format.js';
 import { EmptyState, Pill, QueryBoundary } from '../components/ui.js';
 import { AlertIcon, ChartIcon } from '../components/icons.js';
+import { UsagePanel } from './UsagePanel.js';
 
 interface Dashboard {
   kpis: { key: string; label: string; value: number; tone?: string; drilldown: { view: string; filters: Record<string, unknown> } }[];
@@ -259,6 +260,9 @@ export function DashboardPage() {
           </>
         )}
       </QueryBoundary>
+
+      {/* Användning av appen (krav A.3.12–A.3.14). */}
+      <UsagePanel />
     </div>
   );
 }
