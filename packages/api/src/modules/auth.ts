@@ -110,7 +110,30 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     );
     const org = result.rows[0];
     if (!org) throw notFound('Organisationen hittades inte.');
-    return { organisation: org };
+
+    // Vilka inloggningssätt som faktiskt är påslagna. Ett sätt som saknar
+    // uppgifter redovisas som avstängt, så att sidan inte visar en knapp som
+    // inte leder någonstans.
+    const methods = await withoutOrg((client) =>
+      client.query<{ sso_enabled: boolean; sso_name: string | null; bankid_enabled: boolean }>(
+        'select * from app.login_methods($1)',
+        [slug],
+      ),
+    );
+    const loginMethods = methods.rows[0] ?? {
+      sso_enabled: false,
+      sso_name: null,
+      bankid_enabled: false,
+    };
+
+    return {
+      organisation: org,
+      loginMethods: {
+        password: true,
+        sso: loginMethods.sso_enabled ? { name: loginMethods.sso_name ?? 'Federerad inloggning' } : null,
+        bankid: loginMethods.bankid_enabled,
+      },
+    };
   });
 
   /** Bolag som går att logga in hos. Används av inloggningssidan. */

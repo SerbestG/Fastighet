@@ -14,6 +14,13 @@ interface PublicOrg {
   emergency_phone?: string | null;
 }
 
+/** Inloggningssätt som bolaget har påslagna. */
+interface LoginMethods {
+  password: boolean;
+  sso: { name: string } | null;
+  bankid: boolean;
+}
+
 interface LoginResponse {
   accessToken: string;
   refreshToken: string;
@@ -42,6 +49,7 @@ export function LoginPage() {
   const [mfaSetup, setMfaSetup] = useState<LoginResponse['mfaSetup'] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [pending, setPending] = useState(false);
+  const [methods, setMethods] = useState<LoginMethods | null>(null);
 
   useEffect(() => {
     api.anonymous
@@ -54,6 +62,19 @@ export function LoginPage() {
   }, []);
 
   const selected = organisations.find((org) => org.slug === orgSlug);
+
+  // Vilka inloggningssätt bolaget faktiskt erbjuder. Sidan visar bara knappar
+  // för sätt som är påslagna och konfigurerade.
+  useEffect(() => {
+    if (!orgSlug) {
+      setMethods(null);
+      return;
+    }
+    api.anonymous
+      .get<{ loginMethods: LoginMethods }>(`/api/public/organisations/${orgSlug}`)
+      .then((data) => setMethods(data.loginMethods))
+      .catch(() => setMethods(null));
+  }, [orgSlug]);
 
   useEffect(() => {
     if (selected) {
@@ -239,14 +260,35 @@ export function LoginPage() {
         </Button>
 
         {/*
-          BankID och federerad inloggning kräver avtal, certifikat och
-          konfiguration. Knapparna visas först när integrationen är ansluten,
-          så att appen inte utlovar ett inloggningssätt som inte fungerar.
+          BankID och federerad inloggning visas först när integrationen är
+          ansluten, så att appen inte utlovar ett inloggningssätt som inte
+          fungerar.
         */}
-        <p className="small muted center">
-          Inloggning med BankID och organisationskonto aktiveras när respektive integration är
-          ansluten.
-        </p>
+        {methods?.sso ? (
+          <>
+            <div className="divider" />
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              block
+              onClick={() => {
+                window.location.href = `/api/auth/sso/start?org=${encodeURIComponent(orgSlug)}`;
+              }}
+            >
+              Logga in med {methods.sso.name}
+            </Button>
+            <p className="small muted center">
+              För anställda. Lösenord och tvåfaktor hanteras i organisationens katalog.
+            </p>
+          </>
+        ) : null}
+        {!methods?.sso && !methods?.bankid ? (
+          <p className="small muted center">
+            Inloggning med BankID och organisationskonto aktiveras när respektive integration är
+            ansluten.
+          </p>
+        ) : null}
 
         <div className="divider" />
         <p className="small center">

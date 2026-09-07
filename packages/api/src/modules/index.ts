@@ -16,6 +16,7 @@ import { registerOAuthRoutes } from './oauth.js';
 import { registerOpenApiRoutes } from '../openapi/routes.js';
 import { registerProfileRoutes } from './profile.js';
 import { registerPropertyRoutes } from './properties.js';
+import { registerSsoRoutes } from './sso.js';
 import { registerSurveyRoutes } from './surveys.js';
 import { registerWorkOrderRoutes } from './workorders.js';
 
@@ -24,6 +25,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await registerOpenApiRoutes(app);
   await registerAuthRoutes(app);
   await registerOAuthRoutes(app);
+  await registerSsoRoutes(app);
   await registerProfileRoutes(app);
   await registerHomeRoutes(app);
   await registerFileRoutes(app);

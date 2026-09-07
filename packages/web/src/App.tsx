@@ -3,6 +3,7 @@ import { LoadingBlock } from './components/ui.js';
 import { useAuth } from './lib/auth.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { RegisterPage } from './pages/RegisterPage.js';
+import { SsoLandingPage } from './pages/SsoLandingPage.js';
 import { VerifyEmailPage } from './pages/VerifyEmailPage.js';
 import { ResidentShell } from './resident/ResidentShell.js';
 import { StaffShell } from './staff/StaffShell.js';
@@ -29,6 +30,7 @@ export function App() {
         <Route path="/logga-in" element={<LoginPage />} />
         <Route path="/skapa-konto" element={<RegisterPage />} />
         <Route path="/bekrafta-epost" element={<VerifyEmailPage />} />
+        <Route path="/sso" element={<SsoLandingPage />} />
         <Route path="*" element={<Navigate to="/logga-in" replace />} />
       </Routes>
     );
