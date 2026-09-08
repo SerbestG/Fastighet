@@ -119,6 +119,8 @@ interface RequestOptions {
   /** Anrop som inte kräver inloggning, t.ex. inloggningssidan. */
   anonymous?: boolean;
   raw?: boolean;
+  /** Låter anropet leva vidare när sidan lämnas. Används vid pagehide. */
+  keepalive?: boolean;
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -155,6 +157,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: options.signal,
+      keepalive: options.keepalive,
     });
   };
 

@@ -44,7 +44,7 @@ export function UsagePanel() {
           aria-label="Period"
           value={days}
           onChange={(event) => setDays(Number(event.target.value))}
-          style={{ maxWidth: '10rem' }}
+          style={{ maxWidth: '12rem' }}
         >
           <option value={7}>Senaste veckan</option>
           <option value={30}>Senaste 30 dagarna</option>
