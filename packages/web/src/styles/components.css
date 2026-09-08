@@ -88,8 +88,8 @@
 .list-item:focus-visible { outline-offset: -2px; }
 .list-item .chevron { color: var(--text-subtle); flex: 0 0 auto; }
 
-.list-title { font-weight: 550; color: var(--text-strong); }
-.list-meta { font-size: var(--text-sm); color: var(--text-muted); }
+.list-title { display: block; font-weight: 550; color: var(--text-strong); }
+.list-meta { display: block; font-size: var(--text-sm); color: var(--text-muted); }
 
 /* ------------------------------------------------------------ buttons --- */
 

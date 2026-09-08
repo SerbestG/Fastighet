@@ -1,7 +1,7 @@
 # Tillgänglighetsgranskning
 
 Automatisk granskning med axe-core mot wcag2a, wcag2aa, wcag21a, wcag21aa.
-Kördes 2026-09-07 över 33 vyer i alla tre gränssnitten.
+Kördes 2026-09-08 över 33 vyer i alla tre gränssnitten.
 
 Granskningen körs om med `node e2e/accessibility.mjs` mot en igångvarande miljö.
 

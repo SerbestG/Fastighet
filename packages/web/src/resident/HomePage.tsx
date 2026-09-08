@@ -128,12 +128,12 @@ export function HomePage() {
                           )}
                         </span>
                         <span className="grow">
-                          <span className="list-title" style={{ display: 'block' }}>
+                          <span className="list-title">
                             {notice.localized_title}
                           </span>
                           {notice.summary ? <span className="list-meta">{notice.summary}</span> : null}
                           {notice.starts_at ? (
-                            <span className="list-meta" style={{ display: 'block' }}>
+                            <span className="list-meta">
                               {longDate(notice.starts_at)}
                               {notice.expected_end_at ? ` ${timeRange(notice.starts_at, notice.expected_end_at)}` : ''}
                             </span>
@@ -149,7 +149,7 @@ export function HomePage() {
                           <WrenchIcon size={18} />
                         </span>
                         <span className="grow">
-                          <span className="list-title" style={{ display: 'block' }}>
+                          <span className="list-title">
                             {item.title}
                           </span>
                           <span className="list-meta">
@@ -167,7 +167,7 @@ export function HomePage() {
                           <InvoiceIcon size={18} />
                         </span>
                         <span className="grow">
-                          <span className="list-title" style={{ display: 'block' }}>
+                          <span className="list-title">
                             Nästa hyresavi förfaller {longDate(data.nextInvoice.due_date)}
                           </span>
                           <span className="list-meta">{formatAmount(data.nextInvoice.amount_ore)}</span>
@@ -182,7 +182,7 @@ export function HomePage() {
                           <CalendarIcon size={18} />
                         </span>
                         <span className="grow">
-                          <span className="list-title" style={{ display: 'block' }}>
+                          <span className="list-title">
                             {booking.resource_name}
                           </span>
                           <span className="list-meta">
