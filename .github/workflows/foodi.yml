@@ -1,0 +1,42 @@
+name: Foodi
+
+on:
+  push:
+    paths:
+      - 'foodi/**'
+      - '.github/workflows/foodi.yml'
+  pull_request:
+    paths:
+      - 'foodi/**'
+      - '.github/workflows/foodi.yml'
+
+jobs:
+  kontroll:
+    name: Typkontroll, tester och bygge
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: foodi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: foodi/package-lock.json
+
+      - name: Installera beroenden
+        run: npm ci
+
+      - name: Typkontroll
+        run: npm run typecheck
+
+      - name: Enhetstester
+        run: npm test
+
+      - name: Bygg
+        run: npm run build
+
+      - name: Bygg som en fil
+        run: npm run build:single
