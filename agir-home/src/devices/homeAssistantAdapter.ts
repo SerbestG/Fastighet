@@ -1,5 +1,6 @@
 import type { AdapterEvent, AlarmMode, DeviceAdapter, DeviceState, DeviceStates, Snapshot } from './types';
 import { PLACEMENTS } from '../home/model';
+import { circadian } from '../home/tones';
 
 /**
  * Home Assistant via REST + WebSocket.
@@ -28,6 +29,11 @@ export const ENTITY_MAP: Record<string, string> = {
   w1: 'binary_sensor.arbetsrum_fonster', w2: 'binary_sensor.barnrum_fonster',
   m1: 'media_player.vardagsrum', m2: 'media_player.allrum',
   e1: 'switch.laddbox',
+  st1: 'light.kok_ledlist', st2: 'light.sovrum_ledlist',
+  p1: 'light.vardagsrum_golvlampa', p2: 'switch.kok_kaffebryggare',
+  r1: 'switch.wc_flakt', r2: 'switch.utebelysning',
+  mo1: 'binary_sensor.hall_rorelse', mo2: 'binary_sensor.badrum_narvaro',
+  bt1: 'event.sovrum_vridknapp', bt2: 'event.entre_knapp',
 };
 const ALARM_ENTITY = 'alarm_control_panel.hemmet';
 
@@ -80,11 +86,18 @@ export class HomeAssistantAdapter implements DeviceAdapter {
       this.call(domain, service, { entity_id: entity, ...data });
 
     switch (kind) {
+      case 'relay':
+        if (patch.on !== undefined) return call('switch', patch.on ? 'turn_on' : 'turn_off');
+        return;
+      case 'plug':
+        if (entity.startsWith('switch.')) { if (patch.on !== undefined) return call('switch', patch.on ? 'turn_on' : 'turn_off'); return; }
+      // eslint-disable-next-line no-fallthrough
+      case 'strip':
       case 'light':
         if (patch.on === false) return call('light', 'turn_off');
         return call('light', 'turn_on', {
           ...(patch.value !== undefined ? { brightness_pct: patch.value } : {}),
-          ...(patch.tone ? { color_temp_kelvin: TONE_K[patch.tone] } : {}),
+          ...(patch.tone ? { color_temp_kelvin: TONE_K[patch.tone === 'auto' ? circadian() : patch.tone] } : {}),
         });
       case 'heat':
         if (patch.mode === 'off' || patch.on === false) return call('climate', 'set_hvac_mode', { hvac_mode: 'off' });
@@ -159,6 +172,13 @@ export class HomeAssistantAdapter implements DeviceAdapter {
     const kind = PLACEMENTS.find((x) => x.id === id)?.kind;
     const changedAt = Date.parse(s.last_changed);
     switch (kind) {
+      case 'relay': return { on: s.state === 'on', value: 0, changedAt };
+      case 'motion': return { on: true, value: 2, lastMotion: s.state === 'on' ? Date.now() : undefined, changedAt };
+      case 'button': return { on: true, value: 0, mode: 'toggle', changedAt };
+      case 'plug':
+        if (s.entity_id.startsWith('switch.')) return { on: s.state === 'on', value: 0, power: Number(a.current_power_w ?? 0) / 1000, changedAt };
+      // eslint-disable-next-line no-fallthrough
+      case 'strip':
       case 'light': {
         const k = Number(a.color_temp_kelvin ?? 2700);
         return { on: s.state === 'on', value: Math.round((Number(a.brightness ?? 180) / 255) * 100), tone: k < 3100 ? 'warm' : k < 4300 ? 'neutral' : 'cool', changedAt };

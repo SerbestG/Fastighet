@@ -3,7 +3,7 @@ import { PlanScreen } from '../components/PlanScreen';
 import type { Layer } from '../components/FloorPlan';
 import { AgirButton, Header, Pills, RoundLink } from '../components/ui';
 import { ALARM_MODES, HOME_SCENES, LIGHT_SCENES } from '../home/scenes';
-import { allPlacements, applyScene, setAlarm, useApp, type AppState } from '../state/store';
+import { allPlacements, applyScene, placement, setAlarm, useApp, type AppState } from '../state/store';
 import { fmtNum, fmtTemp, indoorTemp, kwhToday, openWindows, priceNow, totalPower } from '../state/derived';
 
 const unread = (s: AppState) => s.events.some((e) => e.action && !e.done);
@@ -59,8 +59,13 @@ const LAYERS: { id: Layer; label: string }[] = [
 export function Kontroller() {
   const s = useApp((x) => x);
   const [layer, setLayer] = useState<Layer>('allt');
+  // Från Enheter och rum: /kontroller?enhet=l1 öppnar enhetens kort direkt.
+  const [enhet] = useState(() => {
+    const id = new URLSearchParams(location.search).get('enhet');
+    return id && placement(id) ? id : null;
+  });
   return (
-    <PlanScreen ctx="kontroller" layer={layer}
+    <PlanScreen ctx="kontroller" layer={layer} defaultSel={enhet}
       top={<Header title="Kontroller" status={`Villa · 186 m² · ${fmtTemp(indoorTemp(s))} inne`} right={<HeaderBell />} />}
       chips={
         <div role="group" aria-label="Visa på ritningen" className="lager">

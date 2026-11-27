@@ -1,21 +1,39 @@
 import { useState } from 'react';
-import type { ChargeMode, HeatMode, Tone } from '../devices/types';
-import { roomById } from '../home/model';
-import { TONES, toneOf } from '../home/tones';
-import { placement, setDevice, useApp } from '../state/store';
-import { clock, fmtNum, fmtTemp, PRICE_CURVE } from '../state/derived';
+import type { ButtonAction, ChargeMode, HeatMode } from '../devices/types';
+import { isDimmable, roomById } from '../home/model';
+import { circadian, TONE_OPTIONS, TONES, toneOf } from '../home/tones';
+import { BUTTON_ACTIONS, placement, pressButton, setDevice, useApp } from '../state/store';
+import { clock, devicePower, fmtKw, fmtNum, fmtTemp, PRICE_CURVE } from '../state/derived';
 import { GlowSlider } from './GlowSlider';
 import { Icon } from './Icon';
 import { Pills, Switch } from './ui';
 import { toast } from './toast';
 
-const TONE_OPTS = (Object.keys(TONES) as Tone[]).map((id) => ({ id, label: TONES[id].label, dot: TONES[id].hex }));
 const HEAT_OPTS: { id: HeatMode; label: string; dot: string }[] = [
   { id: 'comfort', label: 'Komfort', dot: '#FFB46E' }, { id: 'eco', label: 'Eko', dot: '#2CC56F' }, { id: 'off', label: 'Av', dot: '#6C6E72' },
 ];
 const CHARGE_OPTS: { id: ChargeMode; label: string; dot: string }[] = [
   { id: 'smart', label: 'Smart', dot: '#2CC56F' }, { id: 'now', label: 'Ladda nu', dot: '#E6CFA6' }, { id: 'pause', label: 'Paus', dot: '#6C6E72' },
 ];
+
+const TIMERS = [0, 15, 30, 60];
+const timerLabel = (m: number) => (m === 0 ? 'Ingen timer' : m < 60 ? `${m} min` : `${m / 60} tim`);
+
+/** Liten timerknapp i kortets hörn: tryck för att stega 15 min → 30 min → 1 tim → av. */
+function TimerChip({ until, onSet }: { until?: number; onSet: (at: number | undefined) => void }) {
+  const left = until ? Math.max(0, Math.round((until - Date.now()) / 60000)) : 0;
+  const next = () => {
+    const cur = TIMERS.findIndex((m) => m >= left && left > 0);
+    const m = TIMERS[(cur < 0 ? 0 : cur) + 1] ?? 0;
+    onSet(m ? Date.now() + m * 60000 : undefined);
+    toast(m ? `Stängs av ${clock(Date.now() + m * 60000)}.` : 'Timern är borttagen.');
+  };
+  return (
+    <button className={'timerchip tryck' + (until ? ' is-on' : '')} onClick={next} aria-label={until ? `Timer, av ${clock(until)}. Tryck för att ändra.` : 'Sätt timer'}>
+      <Icon name="timer" size={15} stroke={1.8} />{until ? `Av ${clock(until)}` : 'Timer'}
+    </button>
+  );
+}
 
 const cheapWindow = () => {
   const s = PRICE_CURVE.map((p, h) => ({ p, h })).sort((a, b) => a.p - b.p).slice(0, 3).map((x) => x.h).sort((a, b) => a - b);
@@ -31,17 +49,21 @@ export function DeviceSheet({ id, onClose }: { id: string; onClose: () => void }
   const set = (patch: Parameters<typeof setDevice>[1]) => setDevice(id, patch);
   const since = d.changedAt ? clock(d.changedAt) : '21:12';
 
+  const timed = ['light', 'strip', 'plug', 'relay'].includes(p.kind);
   const head = (
     <div className="ark-huvud">
       <div className="ark-titlar">
-        <span className="ark-kicker">{roomById(p.room)?.name}</span>
+        <span className="ark-kicker">{roomById(p.room)?.name}{p.product ? ` · ${p.product}` : ''}</span>
         <span className="ark-namn">{p.name}</span>
       </div>
-      <button className="stang" onClick={onClose} aria-label="Stäng"><Icon name="close" size={16} stroke={1.5} /></button>
+      <div className="ark-hornet">
+        {timed && d.on && <TimerChip until={d.timerUntil} onSet={(at) => set({ timerUntil: at })} />}
+        <button className="stang" onClick={onClose} aria-label="Stäng"><Icon name="close" size={16} stroke={1.5} /></button>
+      </div>
     </div>
   );
 
-  if (p.kind === 'light') {
+  if (isDimmable(p)) {
     const t = toneOf(d.tone);
     const v = d.on ? d.value : 0;
     return (
@@ -56,7 +78,69 @@ export function DeviceSheet({ id, onClose }: { id: string; onClose: () => void }
         </div>
         <GlowSlider value={v} min={0} max={100} step={1} look="light" tone={t} icon="sun" label="Ljusstyrka" valueText={v ? `${v} procent` : 'Av'}
           onChange={(x) => (x <= 0 ? set({ on: false }) : set({ on: true, value: x }))} />
-        <Pills label="Ljusfärg" options={TONE_OPTS} value={d.tone ?? 'warm'} onPick={(tone) => set({ tone, on: true, value: d.value || 70 })} />
+        <Pills label="Ljusfärg" options={TONE_OPTIONS} value={d.tone ?? 'warm'} onPick={(tone) => {
+          set({ tone, on: true, value: d.value || 70 });
+          if (tone === 'auto') toast(`Dygnsrytm: ${TONES[circadian()].label.toLowerCase()} just nu, varmare mot kvällen.`);
+        }} />
+      </>
+    );
+  }
+
+  if (p.kind === 'relay' || p.kind === 'plug') {
+    const kw = devicePower(p, s.devices);
+    const fan = p.name.toLowerCase().includes('fläkt');
+    return (
+      <>
+        {head}
+        <div className="stor-rad">
+          <span className="stor-siffra" aria-live="polite">{d.on ? 'På' : 'Av'}</span>
+          <span className="stor-cap">{d.on ? (p.kind === 'plug' ? `Drar ${fmtKw(kw)}` : fan ? 'Fläkten går' : 'Strömmen är på') : d.changedAt ? `Av sedan ${clock(d.changedAt)}` : 'Tryck för att slå på'}</span>
+          <button className="kraft tryck" role="switch" aria-checked={d.on} aria-label={p.name} onClick={() => set({ on: !d.on })}
+            style={d.on ? { background: '#FFFFFF', color: '#18191B', boxShadow: '0 0 26px rgba(255,255,255,0.35)' } : undefined}>
+            <Icon name="power" size={22} stroke={2.2} />
+          </button>
+        </div>
+        <span className="mini-label">STÄNG AV OM</span>
+        <div className="snabbrad">
+          {TIMERS.slice(1).map((m) => (
+            <button key={m} className="pill tryck" onClick={() => { set({ on: true, timerUntil: Date.now() + m * 60000 }); toast(`${p.name} stängs av ${clock(Date.now() + m * 60000)}.`); }}>{timerLabel(m)}</button>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  if (p.kind === 'motion') {
+    const recent = d.lastMotion && Date.now() - d.lastMotion < 90000;
+    const DELAYS = [{ id: '1', label: '1 min', dot: '#E6CFA6' }, { id: '5', label: '5 min', dot: '#E6CFA6' }, { id: '15', label: '15 min', dot: '#E6CFA6' }];
+    return (
+      <>
+        {head}
+        <div className="stor-rad">
+          <span className="stor-siffra mellan-siffra" aria-live="polite">{recent ? 'Rörelse nu' : d.lastMotion ? clock(d.lastMotion) : 'Ingen rörelse'}</span>
+          <span className="stor-cap">{d.lux ?? '–'} lux · batteri {d.battery ?? 100} %</span>
+        </div>
+        <div className="rad inre ark-rad">
+          <span className="rad-text"><span className="rad-titel">Tänd rummet vid rörelse</span><span className="rad-sub">Bara när det är mörkt · nattljus 23–06</span></span>
+          <Switch on={d.on} label="Tänd rummet vid rörelse" onToggle={() => set({ on: !d.on })} />
+        </div>
+        {d.on && <Pills label="Släck efter" options={DELAYS} value={String(d.value)} onPick={(v) => set({ value: Number(v) })} />}
+      </>
+    );
+  }
+
+  if (p.kind === 'button') {
+    const mode = (d.mode as ButtonAction) ?? 'toggle';
+    return (
+      <>
+        {head}
+        <span className="ark-text">{p.variant === 'rotary' ? 'Vrid för att dimra. Ett tryck gör:' : 'Ett tryck gör:'} · batteri {d.battery ?? 100} %</span>
+        <div className="knappval" role="group" aria-label="Vad knappen gör">
+          {BUTTON_ACTIONS.map((a) => (
+            <button key={a.id} className={'pill tryck' + (mode === a.id ? ' is-on' : '')} aria-pressed={mode === a.id} onClick={() => set({ mode: a.id })}>{a.label}</button>
+          ))}
+        </div>
+        <button className="knapp-acc tryck" onClick={() => pressButton(id)}>Testa knappen</button>
       </>
     );
   }

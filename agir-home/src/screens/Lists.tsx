@@ -112,9 +112,9 @@ export function Installningar() {
   const n = allPlacements(s).length;
   const menu: [string, IconName, string, string][] = [
     ['/hushallet', 'people', 'Hushållet', `${s.members.length} personer · 1 gäst`],
-    ['/lagg-till', 'grid', 'Enheter och rum', `${n} enheter · 13 rum`],
+    ['/enheter', 'grid', 'Enheter och rum', `${n} enheter · 13 rum · batteri och signal`],
     ['/automationer', 'clock', 'Automationer', `${s.automations.filter((a) => a.on).length} aktiva`],
-    ['/installningar', 'hub', 'Agir Hub', `${s.source || 'Demo-läge'} · fungerar även utan internet`],
+    ['/enheter', 'hub', 'Agir Hub', `${s.source || 'Demo-läge'} · fungerar även utan internet`],
     ['/installningar', 'shield', 'Integritet', 'All data i EU · kameror och röst lokalt'],
   ];
   const notes: [string, string, string, boolean?][] = [

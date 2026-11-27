@@ -400,3 +400,38 @@ html[data-nav='back']::view-transition-new(root) { animation-name: vt-in-b; }
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
+
+/* ---------- nya enhetstyper ---------- */
+.ark-hornet { display: flex; align-items: flex-start; gap: 4px; }
+.timerchip { min-height: 32px; margin-top: -2px; padding: 0 12px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.14); background: transparent; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--dim2); font-variant-numeric: tabular-nums; }
+.timerchip.is-on { border-color: rgba(212, 180, 131, 0.6); color: var(--acc-ljus); background: rgba(212, 180, 131, 0.1); }
+.mellan-siffra { font-size: 36px; font-weight: 400; }
+.ark .mini-label { font-size: 11px; }
+.ark-rad { padding: 0; min-height: 56px; border-bottom: none; }
+.ark-rad .rad-text { padding: 6px 0; }
+.knappval { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ark .pills .pill { padding: 0 8px; gap: 6px; }
+
+/* Enheter och rum */
+.enh-sammanfattning { display: flex; gap: 8px; padding: 18px 16px 4px; overflow-x: auto; scrollbar-width: none; }
+.enh-sammanfattning::-webkit-scrollbar { display: none; }
+.enh-rum { margin: 14px 16px 0; border-radius: 18px; background: var(--kort); overflow: hidden; }
+.enh-rum-huvud { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 16px 6px; }
+.enh-rum-namn { font-size: 17px; font-weight: 700; }
+.enh-rad { width: 100%; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 16px; border: none; border-top: 1px solid var(--linje); background: transparent; text-align: left; }
+.enh-ikon { width: 36px; height: 36px; border-radius: 18px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--kort2); color: var(--dim2); }
+.enh-ikon.pa { background: #FFFFFF; color: #18191B; }
+.enh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.enh-namn { font-size: 15px; font-weight: 600; }
+.enh-sub { font-size: 12px; font-weight: 500; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.enh-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 11px; font-weight: 600; color: var(--dim3); flex: none; }
+.enh-meta span { display: flex; align-items: center; gap: 4px; }
+.enh-meta .lag { color: var(--varn); }
+
+/* Sortiment i Lägg till */
+.sortiment { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.produkt { min-height: 118px; padding: 14px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.07); background: rgba(255, 255, 255, 0.045); display: flex; flex-direction: column; justify-content: space-between; gap: 10px; text-align: left; }
+.produkt-ikon { width: 34px; height: 34px; border-radius: 17px; display: flex; align-items: center; justify-content: center; background: rgba(212, 180, 131, 0.14); color: var(--acc-ljus); }
+.produkt-namn { font-size: 14px; font-weight: 700; line-height: 1.25; }
+.produkt-sub { font-size: 11px; font-weight: 500; color: var(--dim); line-height: 1.4; }
+.produkt-text { display: flex; flex-direction: column; gap: 4px; }

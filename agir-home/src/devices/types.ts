@@ -13,24 +13,38 @@ export type DeviceKind =
   | 'leak'     // läckagevakt: on = vattnet på (torrt), alert = läcka
   | 'window'   // fönstersensor: on = stängt
   | 'media'    // högtalare: on = spelar, value = volym 0–100
-  | 'charger'; // laddbox: on = bil ansluten, value = laddgräns 50–100, mode smart/nu/paus
+  | 'charger'  // laddbox: on = bil ansluten, value = laddgräns 50–100, mode smart/nu/paus
+  | 'strip'    // LED-driver / LED-list: som light, med ställbar färgton
+  | 'relay'    // relä: on/off, timer (fläkt, utebelysning, pump)
+  | 'plug'     // smart plugg: on/off eller dimmer (variant), mäter effekt
+  | 'motion'   // rörelsevakt: on = tänder rummet vid rörelse, value = efterlystid i minuter
+  | 'button';  // trådlös knapp/vrid: mode = vad ett tryck gör
 
-export type Tone = 'warm' | 'neutral' | 'cool';
+/** 'auto' = följer dygnet: neutral på morgonen, kall mitt på dagen, varm på kvällen. */
+export type Tone = 'warm' | 'neutral' | 'cool' | 'auto';
 export type HeatMode = 'comfort' | 'eco' | 'off';
 export type ChargeMode = 'smart' | 'now' | 'pause';
+export type ButtonAction = 'toggle' | 'natt' | 'allt-av' | 'film';
 export type AlarmMode = 'off' | 'perimeter' | 'full';
 
 export interface DeviceState {
   on: boolean;
   value: number;
   tone?: Tone;
-  mode?: HeatMode | ChargeMode;
+  mode?: HeatMode | ChargeMode | ButtonAction;
   /** Uppmätt värde, t.ex. rumstemperatur. */
   reading?: number;
   /** Effekt just nu i kW (om enheten mäter det). */
   power?: number;
   alert?: boolean;
   battery?: number;
+  /** Stängs av automatiskt vid denna tidpunkt (ms). */
+  timerUntil?: number;
+  /** Senaste rörelse (ms). */
+  lastMotion?: number;
+  lux?: number;
+  /** Signalstyrka 0–100 i Thread-nätet. */
+  signal?: number;
   /** Tidpunkt (ms) för senaste ändringen. */
   changedAt?: number;
 }

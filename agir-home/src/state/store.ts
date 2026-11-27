@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { createAdapter } from '../devices';
-import type { AlarmMode, DeviceKind, DeviceState, DeviceStates } from '../devices/types';
-import { defaultState, PLACEMENTS, roomById, type FloorId, type Placement } from '../home/model';
+import type { AlarmMode, ButtonAction, DeviceKind, DeviceState, DeviceStates } from '../devices/types';
+import { defaultState, isLightLike, PLACEMENTS, roomById, type FloorId, type Placement } from '../home/model';
 import { ALARM_MODES, HOME_SCENES, LIGHT_SCENES, type Scene } from '../home/scenes';
 
 export type EventCat = 'sak' | 'klim' | 'energi' | 'agir';
@@ -124,13 +124,19 @@ const adapter = createAdapter();
 
 export async function boot() {
   adapter.subscribe((e) => {
-    if (e.type === 'device') set((s) => ({ devices: { ...s.devices, [e.id]: e.state } }));
+    if (e.type === 'device') {
+      const before = state.devices[e.id];
+      set((s) => ({ devices: { ...s.devices, [e.id]: e.state } }));
+      if (e.state.lastMotion && e.state.lastMotion !== before?.lastMotion) onMotion(e.id);
+    }
     else if (e.type === 'alarm') set({ alarm: e.mode });
     else if (e.type === 'connection') set({ online: e.online });
   });
   try {
     const snap = await adapter.connect();
     set({ ready: true, source: adapter.label, devices: snap.devices, alarm: snap.alarm, outdoor: snap.outdoor ?? state.outdoor, price: snap.pricePerKwh ?? state.price });
+    // Timrar som löpte medan appen var stängd.
+    for (const [id, d] of Object.entries(snap.devices)) if (d.on && d.timerUntil) scheduleOff(id, d.timerUntil);
   } catch {
     set({ ready: true, online: false, source: adapter.label });
   }
@@ -152,10 +158,81 @@ function optimistic(patches: Record<string, Partial<DeviceState>>) {
 }
 
 let autoLock: number | undefined;
+const offTimers = new Map<string, number>();
+
+/** Stänger av en enhet vid en viss tidpunkt (timer på relä, plugg och lampor). */
+function scheduleOff(id: string, at: number) {
+  window.clearTimeout(offTimers.get(id));
+  const run = () => {
+    offTimers.delete(id);
+    const d = state.devices[id];
+    if (!d || !d.on || d.timerUntil !== at) return;
+    optimistic({ [id]: { on: false, timerUntil: undefined } });
+    void adapter.setDevice(id, { on: false, timerUntil: undefined });
+    const p = placement(id);
+    if (p) logEvent('energi', `${p.name} stängdes av`, 'Timern gick ut.', true);
+  };
+  const ms = at - Date.now();
+  if (ms <= 0) run(); else offTimers.set(id, window.setTimeout(run, Math.min(ms, 2 ** 31 - 1)));
+}
+
+/* Rörelsevakten: tänder rummet när någon kommer in och det är mörkt, släcker när det blivit tomt. */
+const motionOff = new Map<string, number>();
+const motionLit = new Map<string, string[]>();
+function onMotion(id: string) {
+  const p = placement(id);
+  const d = state.devices[id];
+  if (!p || p.kind !== 'motion' || !d?.on) return;
+  const hour = new Date().getHours();
+  const dark = hour >= 16 || hour < 8 || (d.lux ?? 100) < 20;
+  const lamps = allPlacements().filter((x) => x.room === p.room && isLightLike(x));
+  const allOff = lamps.every((l) => !state.devices[l.id]?.on);
+  const night = hour >= 23 || hour < 6;
+  if (allOff && dark && lamps.length) {
+    const level = night ? 8 : 70;
+    setMany(Object.fromEntries(lamps.map((l) => [l.id, { on: true, value: level }])));
+    motionLit.set(p.room, lamps.map((l) => l.id));
+    logEvent('agir', `${roomById(p.room)?.name} tändes`, night ? 'Rörelse i natt · svagt nattljus.' : 'Rörelse och mörkt.', true);
+  }
+  // Släck bara det Agir själv tände, efter vald tid utan rörelse.
+  const lit = motionLit.get(p.room);
+  if (!lit) return;
+  window.clearTimeout(motionOff.get(p.room));
+  motionOff.set(p.room, window.setTimeout(() => {
+    setMany(Object.fromEntries(lit.map((l) => [l, { on: false }])));
+    motionLit.delete(p.room);
+  }, Math.max(1, d.value) * 60000));
+}
+
+const ACTION_LABEL: Record<ButtonAction, string> = { toggle: 'Tänd/släck rummet', natt: 'Godnatt', 'allt-av': 'Allt av', film: 'Film' };
+export const BUTTON_ACTIONS = (Object.keys(ACTION_LABEL) as ButtonAction[]).map((id) => ({ id, label: ACTION_LABEL[id] }));
+
+/** Vad som händer när någon trycker på en trådlös knapp. */
+export function pressButton(id: string) {
+  const p = placement(id);
+  const d = state.devices[id];
+  if (!p || !d) return;
+  const mode = (d.mode as ButtonAction) ?? 'toggle';
+  if (mode === 'toggle') {
+    const lamps = allPlacements().filter((x) => x.room === p.room && isLightLike(x));
+    const on = lamps.some((l) => state.devices[l.id]?.on);
+    setMany(Object.fromEntries(lamps.map((l) => [l.id, { on: !on, value: state.devices[l.id]?.value || 70 }])));
+  } else if (mode === 'allt-av') {
+    setMany(Object.fromEntries(allPlacements().filter((x) => isLightLike(x) && state.devices[x.id]?.on).map((x) => [x.id, { on: false }])));
+  } else {
+    const sc = sceneById(mode);
+    if (sc) applyScene(sc);
+  }
+  logEvent('agir', `${p.name}: ${ACTION_LABEL[mode]}`, `${roomById(p.room)?.name} · tryck.`);
+}
 
 export function setDevice(id: string, patch: Partial<DeviceState>) {
+  // Släcks enheten tas timern bort; sätts en ny timer schemaläggs den.
+  if (patch.on === false && state.devices[id]?.timerUntil) patch = { ...patch, timerUntil: undefined };
   optimistic({ [id]: patch });
   void adapter.setDevice(id, patch);
+  if (patch.timerUntil) scheduleOff(id, patch.timerUntil);
+  else if (patch.on === false) window.clearTimeout(offTimers.get(id));
   const p = placement(id);
   if (p?.kind === 'lock' && patch.on !== undefined) {
     logEvent('sak', patch.on ? 'Ytterdörren låstes' : 'Ytterdörren låstes upp', 'Från appen.');
@@ -195,12 +272,12 @@ export function setAlarm(mode: AlarmMode, log = true) {
   if (log) logEvent('sak', ALARM_MODES.find((m) => m.id === mode)!.label, mode === 'off' ? 'Larmet stängdes av.' : 'Larmet slogs på.');
 }
 
-export function addDevice(kind: DeviceKind, room: string, name: string) {
+export function addDevice(kind: DeviceKind, room: string, name: string, product?: string, variant?: string) {
   const rm = roomById(room)!;
   const n = state.extra.length;
   const id = `x${Date.now().toString(36)}`;
   const pl: Placement = {
-    id, kind, room, floor: rm.floor, name,
+    id, kind, room, floor: rm.floor, name, product, variant,
     x: Math.round(rm.x + rm.w * (0.3 + 0.4 * ((n * 0.37) % 1))),
     y: Math.round(rm.y + rm.h * 0.4),
   };

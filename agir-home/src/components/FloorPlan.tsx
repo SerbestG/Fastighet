@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DeviceKind } from '../devices/types';
-import { PLAN_H, PLAN_W, ROOMS, WINDOWS, roomById, type Placement, type Room } from '../home/model';
+import { isLightLike, PLAN_H, PLAN_W, ROOMS, WINDOWS, roomById, type Placement, type Room } from '../home/model';
 import { toneOf } from '../home/tones';
 import { allPlacements, setView, useApp, type AppState } from '../state/store';
 import { fmtKw, fmtTemp, heatColor, roomPower } from '../state/derived';
@@ -10,11 +10,11 @@ export type Layer = 'allt' | 'ljus' | 'klimat' | 'sakerhet' | 'media' | 'energi'
 
 const LAYER_KINDS: Record<Layer, DeviceKind[] | null> = {
   allt: null,
-  ljus: ['light'],
+  ljus: ['light', 'strip', 'plug', 'relay', 'button', 'motion'],
   klimat: ['heat', 'blind', 'window'],
-  sakerhet: ['lock', 'camera', 'leak', 'window'],
+  sakerhet: ['lock', 'camera', 'leak', 'window', 'motion'],
   media: ['media', 'charger', 'blind'],
-  energi: ['charger', 'heat'],
+  energi: ['charger', 'heat', 'plug', 'relay'],
 };
 
 interface Props {
@@ -32,7 +32,7 @@ const GLOW = '232,200,150';
 
 export function roomStats(s: AppState, roomId: string) {
   const dv = allPlacements(s).filter((p) => p.room === roomId);
-  const lamps = dv.filter((p) => p.kind === 'light');
+  const lamps = dv.filter((p) => isLightLike(p));
   const lit = lamps.filter((p) => s.devices[p.id]?.on).length;
   const heat = dv.find((p) => p.kind === 'heat');
   const temp = heat && s.devices[heat.id] ? fmtTemp(s.devices[heat.id].value) : null;
@@ -159,7 +159,7 @@ export function FloorPlan({ layer, sel, onSel, rsel, onRsel, room, onRoom }: Pro
   };
 
   const roomStyle = (r: Room): React.CSSProperties => {
-    const lamps = P.filter((p) => p.kind === 'light' && p.room === r.id && s.devices[p.id]?.on);
+    const lamps = P.filter((p) => isLightLike(p) && p.room === r.id && s.devices[p.id]?.on);
     const tone = lamps.length ? toneOf(s.devices[lamps[0].id].tone).rgb : GLOW;
     const level = lamps.length ? lamps.reduce((a, p) => a + s.devices[p.id].value, 0) / lamps.length / 100 : 0;
     const heat = P.find((p) => p.kind === 'heat' && p.room === r.id);
@@ -207,8 +207,11 @@ export function FloorPlan({ layer, sel, onSel, rsel, onRsel, room, onRoom }: Pro
     const d = s.devices[p.id];
     if (!d) return { bg: '#2C2D30', fg: '#A4A6AA', shadow: '0 2px 8px rgba(0,0,0,0.7)', warn: false };
     const warn = (p.kind === 'lock' && !d.on) || (p.kind === 'window' && !d.on) || (p.kind === 'leak' && (!d.on || !!d.alert));
-    const lit = p.kind === 'light' && d.on;
-    const active = !warn && (p.kind === 'light' || p.kind === 'media' ? d.on : p.kind === 'charger' ? d.mode !== 'pause' : true);
+    const lit = isLightLike(p) && d.on;
+    const switched: DeviceKind[] = ['light', 'strip', 'media', 'plug', 'relay'];
+    const active = !warn && (switched.includes(p.kind) ? d.on : p.kind === 'charger' ? d.mode !== 'pause' : p.kind === 'motion' ? d.on : true);
+    // Rörelsevakten lyser upp en stund efter att den känt rörelse.
+    if (p.kind === 'motion' && d.lastMotion && Date.now() - d.lastMotion < 90000) return { bg: '#E6CFA6', fg: '#2A1A08', shadow: '0 0 18px rgba(230,207,166,0.7)', warn: false };
     if (warn) return { bg: '#F0A030', fg: '#18191B', shadow: '0 0 14px rgba(240,160,48,0.55)', warn };
     if (lit) { const t = toneOf(d.tone); return { bg: t.hex, fg: '#2A1A08', shadow: `0 0 16px rgba(${t.rgb},0.6)`, warn }; }
     if (active) return { bg: '#FFFFFF', fg: '#18191B', shadow: '0 2px 8px rgba(0,0,0,0.7)', warn };

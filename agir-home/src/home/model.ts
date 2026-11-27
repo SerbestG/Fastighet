@@ -29,7 +29,18 @@ export interface Placement {
   x: number;
   y: number;
   name: string;
+  /** Plugg: 'dim' eller 'onoff'. Knapp: 'rotary' eller 'push'. */
+  variant?: string;
+  /** Produkt i Agir-sortimentet, t.ex. "Agir Dosdimmer D1". */
+  product?: string;
 }
+
+/** Enheter som ger ljus och därför får rummet att glöda. */
+export const isLightLike = (p: Pick<Placement, 'kind' | 'variant'>) =>
+  p.kind === 'light' || p.kind === 'strip' || (p.kind === 'plug' && p.variant === 'dim');
+
+/** Enheter som har en dimbar nivå och ljusfärg. */
+export const isDimmable = isLightLike;
 
 export const FLOORS: { id: FloorId; label: string }[] = [
   { id: 'e', label: 'Entréplan' },
@@ -60,9 +71,9 @@ export const WINDOWS: Record<FloorId, [number, number, number, number][]> = {
   o: [[20, -2, 150, 3], [230, -2, 90, 3], [-2, 200, 3, 140], [349, 220, 3, 120], [190, 379, 140, 3]],
 };
 
-const p = (id: string, kind: DeviceKind, room: string, x: number, y: number, name: string): Placement => {
+const p = (id: string, kind: DeviceKind, room: string, x: number, y: number, name: string, product?: string, variant?: string): Placement => {
   const floor = ROOMS.find((rm) => rm.id === room)!.floor;
-  return { id, kind, room, floor, x, y, name };
+  return { id, kind, room, floor, x, y, name, product, variant };
 };
 
 export const PLACEMENTS: Placement[] = [
@@ -91,6 +102,17 @@ export const PLACEMENTS: Placement[] = [
   p('s2', 'leak', 'bad', 225, 85, 'Läckagevakt'),
   p('w2', 'window', 'barn', 25, 215, 'Fönster'),
   p('m2', 'media', 'all', 320, 330, 'Högtalare'),
+  // Hela ljussortimentet: LED-list, relä, pluggar, rörelsevakter och knappar.
+  p('st1', 'strip', 'kok', 230, 95, 'LED-list', 'Agir LED-driver L75'),
+  p('p2', 'plug', 'kok', 320, 30, 'Kaffebryggare', 'Agir Plugg P1', 'onoff'),
+  p('p1', 'plug', 'vard', 40, 40, 'Golvlampa', 'Agir Plugg P2 dimmer', 'dim'),
+  p('r1', 'relay', 'wc', 175, 200, 'Fläkt', 'Agir Relä R1'),
+  p('mo1', 'motion', 'hall', 25, 190, 'Rörelsevakt', 'Agir Rörelsevakt M1'),
+  p('r2', 'relay', 'entre', 325, 362, 'Utebelysning', 'Agir Relä R1'),
+  p('bt2', 'button', 'entre', 268, 318, 'Knapp vid dörren', 'Agir Knapp K1', 'push'),
+  p('st2', 'strip', 'sov', 60, 30, 'LED-list säng', 'Agir LED-driver L10'),
+  p('bt1', 'button', 'sov', 160, 150, 'Vridknapp', 'Agir Vrid V1', 'rotary'),
+  p('mo2', 'motion', 'bad', 320, 30, 'Närvarosensor', 'Agir Rörelsevakt M1'),
 ];
 
 const S = (on: boolean, value: number, extra: Partial<DeviceState> = {}): DeviceState => ({ on, value, ...extra });
@@ -106,6 +128,11 @@ export const INITIAL_STATES: DeviceStates = {
   m1: S(true, 35), m2: S(false, 25),
   e1: S(true, 80, { mode: 'smart' }),
   w1: S(true, 0), w2: S(false, 0),
+  st1: S(true, 60, { tone: 'auto' }), st2: S(false, 30, { tone: 'warm' }),
+  p1: S(true, 45, { tone: 'warm' }), p2: S(false, 0, { power: 1.1 }),
+  r1: S(false, 0), r2: S(true, 0),
+  mo1: S(true, 2, { lux: 14, battery: 96 }), mo2: S(true, 5, { lux: 40, battery: 81 }),
+  bt1: S(true, 0, { mode: 'toggle', battery: 100 }), bt2: S(true, 0, { mode: 'allt-av', battery: 74 }),
 };
 
 /** Standardläge för en ny enhet av ett visst slag. */
@@ -117,6 +144,11 @@ export function defaultState(kind: DeviceKind): DeviceState {
     case 'media': return S(false, 25);
     case 'charger': return S(false, 80, { mode: 'smart' });
     case 'leak': return S(true, 0, { battery: 100 });
+    case 'strip': return S(true, 60, { tone: 'auto' });
+    case 'plug': return S(false, 50, { tone: 'warm', power: 0.06 });
+    case 'relay': return S(false, 0);
+    case 'motion': return S(true, 2, { lux: 20, battery: 100 });
+    case 'button': return S(true, 0, { mode: 'toggle', battery: 100 });
     default: return S(true, 0);
   }
 }
@@ -127,4 +159,8 @@ export const roomsOn = (floor: FloorId) => ROOMS.filter((rm) => rm.floor === flo
 export const KIND_LABEL: Record<DeviceKind, string> = {
   light: 'Ljus', heat: 'Golvvärme', lock: 'Lås', blind: 'Persienn', camera: 'Kamera',
   leak: 'Läckagevakt', window: 'Fönster', media: 'Högtalare', charger: 'Laddbox',
+  strip: 'LED-list', relay: 'Relä', plug: 'Smart plugg', motion: 'Rörelsevakt', button: 'Knapp',
 };
+
+/** Batteridrivna enheter (resten är nätanslutna och förstärker Thread-nätet). */
+export const BATTERY_KINDS: DeviceKind[] = ['leak', 'window', 'motion', 'button'];

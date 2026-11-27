@@ -2,56 +2,72 @@ import { useEffect, useRef, useState } from 'react';
 import { AgirTip, Chip, Done, Header, Switch } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { GlowSlider } from '../components/GlowSlider';
-import type { DeviceKind } from '../devices/types';
-import { FLOORS, ROOMS } from '../home/model';
+import { FLOORS, isLightLike, ROOMS } from '../home/model';
+import { ALL_PRODUCTS, CATALOG, type Product } from '../home/catalog';
 import { addDevice, addAutomation, allPlacements, getState, patchApp, setMany, setView } from '../state/store';
 import { fmtTemp } from '../state/derived';
 import { go } from '../router';
 
 /* ---------------- Lägg till enhet ---------------- */
 
-const NEARBY: { kind: DeviceKind; name: string; product: string; sub: string; guess: string; load: string }[] = [
-  { kind: 'light', name: 'Taklampa', product: 'Agir Dimmer D1', sub: 'Ny · redo att kopplas', guess: 'kok', load: 'LED, dimbar, 42 W' },
-  { kind: 'leak', name: 'Läckagevakt', product: 'Läckagesensor', sub: 'Ny · redo att kopplas', guess: 'wc', load: 'Batteri 100 %' },
-];
+const NEARBY = ['d1', 'lk'];
+const GUESS: Partial<Record<string, string>> = { d1: 'kok', lk: 'wc', m1: 'hall', k1: 'entre', v1: 'sov', sp1: 'kok', sp2: 'vard', j1: 'vard' };
 
 export function LaggTill() {
   const [step, setStep] = useState(0);
-  const [dev, setDev] = useState(NEARBY[0]);
-  const [room, setRoom] = useState(NEARBY[0].guess);
+  const [prod, setProd] = useState<Product>(ALL_PRODUCTS[0]);
+  const [room, setRoom] = useState('kok');
   const [tip, setTip] = useState<'ja' | 'nej' | null>(null);
   const t = useRef<number>();
   useEffect(() => () => window.clearTimeout(t.current), []);
 
-  const start = (d: typeof NEARBY[number]) => {
-    setDev(d); setRoom(d.guess); setStep(1);
+  const start = (pr: Product) => {
+    setProd(pr); setRoom(GUESS[pr.id] ?? 'vard'); setStep(1); setTip(null);
+    window.scrollTo(0, 0);
     t.current = window.setTimeout(() => setStep(2), 1800);
   };
   const finish = () => {
-    const pl = addDevice(dev.kind, room, dev.name);
+    const pl = addDevice(prod.kind, room, prod.defaultName, prod.name, prod.variant);
     setView({ floor: pl.floor });
     setStep(3);
   };
   const roomDef = ROOMS.find((r) => r.id === room)?.def ?? '';
+  const lightLike = isLightLike({ kind: prod.kind, variant: prod.variant });
 
   return (
     <div className="skarm lista-skarm">
-      <Header title="Lägg till enhet" backTo="/meny" backLabel="Meny" status={['Steg 1 av 4 · skanna', 'Steg 2 av 4 · ansluter', 'Steg 3 av 4 · placera', 'Klart'][step]} />
+      <Header title="Lägg till enhet" backTo="/meny" backLabel="Meny" status={['Steg 1 av 4 · välj eller skanna', 'Steg 2 av 4 · ansluter', 'Steg 3 av 4 · placera', 'Klart'][step]} />
       <div className="flode">
         {step === 0 && (
           <div className="in kolumn">
-            <button className="skanna tryck" onClick={() => start(NEARBY[0])} aria-label="Skanna QR-kod">
+            <button className="skanna tryck" onClick={() => start(ALL_PRODUCTS[0])} aria-label="Skanna QR-kod">
               <span className="hörn tl" /><span className="hörn tr" /><span className="hörn bl" /><span className="hörn br" />
               <span className="skanna-linje" aria-hidden="true" />
-              <span className="skanna-text">Rikta kameran mot QR-koden · tryck för att skanna</span>
+              <span className="skanna-text">Skanna Matter-koden på kartongen · tryck för att skanna</span>
             </button>
             <span className="mini-label pad">AGIR HITTADE I NÄRHETEN</span>
-            {NEARBY.map((n) => (
-              <button key={n.product} className="nara tryck" onClick={() => start(n)}>
+            {NEARBY.map((id) => ALL_PRODUCTS.find((x) => x.id === id)!).map((n) => (
+              <button key={n.id} className="nara tryck" onClick={() => start(n)}>
                 <Icon name={n.kind} size={24} stroke={1.7} color="#C9CACD" />
-                <span className="rad-text"><span className="rad-titel">{n.product}</span><span className="rad-sub">{n.sub}</span></span>
+                <span className="rad-text"><span className="rad-titel">{n.name}</span><span className="rad-sub">Ny · redo att kopplas</span></span>
                 <span className="nara-cta">Lägg till</span>
               </button>
+            ))}
+            {CATALOG.map((g) => (
+              <div key={g.id} className="kolumn tät">
+                <span className="mini-label pad">{g.label.toUpperCase()}</span>
+                <div className="sortiment">
+                  {g.items.map((pr) => (
+                    <button key={pr.id} className="produkt tryck" onClick={() => start(pr)}>
+                      <span className="produkt-ikon" aria-hidden="true"><Icon name={pr.kind} size={17} stroke={1.8} /></span>
+                      <span className="produkt-text">
+                        <span className="produkt-namn">{pr.name}</span>
+                        <span className="produkt-sub">{pr.sub}{pr.electrician ? ' · elektriker' : ''}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -61,17 +77,17 @@ export function LaggTill() {
               <circle cx="60" cy="60" r="54" fill="none" stroke="#2C2D30" strokeWidth="4" />
               <circle cx="60" cy="60" r="54" fill="none" stroke="#D4B483" strokeWidth="4" strokeLinecap="round" strokeDasharray="110 400" />
             </svg>
-            <span className="flode-titel">Ansluter {dev.product}</span>
+            <span className="flode-titel">Ansluter {prod.name}</span>
             <span className="rad-sub">Matter över Thread · via Agir Hub</span>
             <div className="kort checklista" role="status">
-              <span><b>✓</b> Enheten hittad</span><span><b>✓</b> Säker krypterad koppling</span><span className="dim">Agir känner igen enheten: {dev.load}</span>
+              <span><b>✓</b> Enheten hittad</span><span><b>✓</b> Säker krypterad koppling</span><span className="dim">{prod.sub}</span>
             </div>
           </div>
         )}
         {step === 2 && (
           <div className="in kolumn">
             <span className="flode-titel pad">Var sitter den?</span>
-            <span className="rad-sub pad">Agir gissar <b className="vit">{ROOMS.find((r) => r.id === dev.guess)?.name}</b> utifrån signalstyrkan.</span>
+            <span className="rad-sub pad">Agir gissar <b className="vit">{ROOMS.find((r) => r.id === (GUESS[prod.id] ?? 'vard'))?.name}</b> utifrån signalstyrkan.</span>
             {FLOORS.map((f) => (
               <div key={f.id} className="kolumn tät">
                 <span className="mini-label pad">{f.label.toUpperCase()}</span>
@@ -88,20 +104,19 @@ export function LaggTill() {
         {step === 3 && (
           <div className="in kolumn centrerad">
             <span className="bock"><Icon name="check" size={40} stroke={2.2} color="#2CC56F" /></span>
-            <span className="flode-titel">{dev.name} i {roomDef} är klar</span>
+            <span className="flode-titel">{prod.defaultName} i {roomDef} är klar</span>
             <span className="rad-sub">Syns på ritningen och kan styras av Agir.</span>
           </div>
         )}
       </div>
-      {step === 3 && tip === null && dev.kind === 'light' && (
-        <AgirTip label="Agir föreslår" text="Vill du att lampan ingår i Kväll och Godnatt, och tänds svagt när någon går upp på natten?"
-          yes="Ja, lägg till" no="Inte nu" onYes={() => setTip('ja')} onNo={() => setTip('nej')} />
-      )}
-      {step === 3 && tip === null && dev.kind === 'leak' && (
-        <AgirTip label="Agir föreslår" text="Ska jag stänga huvudkranen automatiskt och larma alla vuxna om sensorn känner vatten?"
+      {step === 3 && tip === null && (lightLike || prod.kind === 'leak' || prod.kind === 'motion') && (
+        <AgirTip label="Agir föreslår"
+          text={lightLike ? 'Vill du att den ingår i Kväll och Godnatt, och följer dygnsrytmen så att ljuset blir varmare mot kvällen?'
+            : prod.kind === 'leak' ? 'Ska jag stänga huvudkranen automatiskt och larma alla vuxna om sensorn känner vatten?'
+              : `Ska jag tända ${roomDef} när någon går in och det är mörkt, och släcka efter två minuter utan rörelse?`}
           yes="Ja, gör det" no="Inte nu" onYes={() => setTip('ja')} onNo={() => setTip('nej')} />
       )}
-      {step === 3 && tip === 'ja' && <Done>{dev.kind === 'light' ? 'Klart. Lampan ingår nu i Kväll, Godnatt och nattljuset.' : 'Klart. Vattnet stängs automatiskt vid läcka.'}</Done>}
+      {step === 3 && tip === 'ja' && <Done>{lightLike ? 'Klart. Den ingår nu i Kväll, Godnatt och följer dygnet.' : prod.kind === 'leak' ? 'Klart. Vattnet stängs automatiskt vid läcka.' : 'Klart. Rummet tänds vid rörelse när det är mörkt.'}</Done>}
       {step === 3 && (
         <div className="knapprad pad-sida">
           <button className="knapp-stor gra tryck" onClick={() => { setStep(0); setTip(null); }}>Lägg till fler</button>
