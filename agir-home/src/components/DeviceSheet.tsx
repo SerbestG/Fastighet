@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ButtonAction, ChargeMode, HeatMode } from '../devices/types';
 import { isDimmable, roomById } from '../home/model';
 import { circadian, TONE_OPTIONS, TONES, toneOf } from '../home/tones';
@@ -234,7 +235,7 @@ export function DeviceSheet({ id, onClose }: { id: string; onClose: () => void }
       {head}
       <span className="ark-text">{status}</span>
       <button className="knapp-acc tryck" onClick={run}>{action}</button>
-      {live && <CameraLive onClose={() => setLive(false)} />}
+      {live && createPortal(<CameraLive onClose={() => setLive(false)} />, document.body)}
     </>
   );
 }

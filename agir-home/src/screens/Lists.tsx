@@ -3,10 +3,11 @@ import { AgirTip, Chip, Done, Header, Link, Row, SectionLabel, Switch } from '..
 import { Icon, type IconName } from '../components/Icon';
 import { toast } from '../components/toast';
 import {
-  addAutomation, allPlacements, dismiss, markEventDone, patchApp, resetDemo, toggleAutomation, togglePerm,
+  addAutomation, allPlacements, deleteScene, dismiss, markEventDone, patchApp, resetDemo, toggleAutomation, togglePerm,
   useApp, type EventCat, type PermKey,
 } from '../state/store';
 import { clock } from '../state/derived';
+import { loadHAConfig } from '../devices';
 
 /* ---------------- Automationer ---------------- */
 
@@ -44,6 +45,18 @@ export function Automationer() {
           {kan ? 'Spara automation' : 'Välj minst en åtgärd'}
         </button>
       </div>
+
+      {s.customScenes.length > 0 && (
+        <>
+          <SectionLabel>Egna scener</SectionLabel>
+          <div className="rader">
+            {s.customScenes.map((sc) => (
+              <Row key={sc.id} label={sc.label} sub={`${Object.keys(sc.patches).length} enheter · syns på Hem och Ljus`}
+                right={<button className="chip tryck" onClick={() => { deleteScene(sc.id); toast(`${sc.label} är borttagen.`); }}>Ta bort</button>} />
+            ))}
+          </div>
+        </>
+      )}
 
       <SectionLabel>Dina automationer</SectionLabel>
       <div className="rader">
@@ -110,10 +123,13 @@ export function Hushallet() {
 export function Installningar() {
   const s = useApp((x) => x);
   const n = allPlacements(s).length;
+  const ha = loadHAConfig();
   const menu: [string, IconName, string, string][] = [
     ['/hushallet', 'people', 'Hushållet', `${s.members.length} personer · 1 gäst`],
     ['/enheter', 'grid', 'Enheter och rum', `${n} enheter · 13 rum · batteri och signal`],
     ['/automationer', 'clock', 'Automationer', `${s.automations.filter((a) => a.on).length} aktiva`],
+    ['/anslut', 'home', 'Home Assistant', ha ? `Ansluten · ${Object.keys(ha.map).length} riktiga enheter` : 'Koppla in riktiga enheter'],
+    ['/sortiment', 'spark', 'Agir-sortimentet', 'Dimrar, reläer, LED, sensorer · boka elektriker'],
     ['/enheter', 'hub', 'Agir Hub', `${s.source || 'Demo-läge'} · fungerar även utan internet`],
     ['/installningar', 'shield', 'Integritet', 'All data i EU · kameror och röst lokalt'],
   ];

@@ -42,6 +42,8 @@ export interface AppState {
   dismissed: string[];
   notify: Record<string, boolean>;
   update: 'ny' | 'natt' | 'klar';
+  /** Egna scener som användaren sparat. */
+  customScenes: Scene[];
   /** Visningsläge för 3D-huset – delas av alla skärmar. */
   view: { floor: FloorId; mode: '2d' | '3d'; rz: number; rx: number; zoom: number };
 }
@@ -85,10 +87,11 @@ const DEFAULT: AppState = {
   onboarded: false, wake: '06:30', comfort: 22, dismissed: [],
   notify: { lacka: true, las: true, larm: true, agir: true, pris: false },
   update: 'ny',
+  customScenes: [],
   view: { floor: 'e', mode: '3d', rz: -38, rx: 56, zoom: 0.8 },
 };
 
-const PERSISTED: (keyof AppState)[] = ['scene', 'lightScene', 'extra', 'events', 'automations', 'members', 'perms', 'onboarded', 'wake', 'comfort', 'dismissed', 'notify', 'update', 'view'];
+const PERSISTED: (keyof AppState)[] = ['scene', 'lightScene', 'extra', 'events', 'automations', 'members', 'perms', 'onboarded', 'wake', 'comfort', 'dismissed', 'notify', 'update', 'view', 'customScenes'];
 
 function loadApp(): AppState {
   try {
@@ -120,7 +123,7 @@ export function useApp<T>(sel: (s: AppState) => T): T {
 
 /* ---------- enhetskälla ---------- */
 
-const adapter = createAdapter();
+const adapter = createAdapter((id) => placement(id)?.kind);
 
 export async function boot() {
   adapter.subscribe((e) => {
@@ -263,7 +266,7 @@ export function applyScene(sc: Scene, kind: 'home' | 'light' = 'home') {
 }
 
 export function sceneById(id: string) {
-  return [...HOME_SCENES, ...LIGHT_SCENES].find((s) => s.id === id);
+  return [...HOME_SCENES, ...LIGHT_SCENES, ...state.customScenes].find((s) => s.id === id);
 }
 
 export function setAlarm(mode: AlarmMode, log = true) {
@@ -313,4 +316,24 @@ export function togglePerm(member: string, key: PermKey) {
 export function resetDemo() {
   try { localStorage.removeItem(APP_KEY); localStorage.removeItem('agir.mock.v1'); } catch { /* ignoreras */ }
   location.href = '/';
+}
+
+/* ---------- egna scener ---------- */
+
+/** Sparar hur de valda enheterna står just nu som en scen. */
+export function saveScene(label: string, ids: string[], dot: string) {
+  const patches: Scene['patches'] = {};
+  for (const id of ids) {
+    const d = state.devices[id];
+    if (!d) continue;
+    patches[id] = d.on ? { on: true, value: d.value, ...(d.tone ? { tone: d.tone } : {}) } : { on: false };
+  }
+  const sc: Scene = { id: `s${Date.now().toString(36)}`, label, dot, patches, say: `Scenen ${label} är på.` };
+  set((s) => ({ customScenes: [...s.customScenes, sc], scene: sc.id }));
+  logEvent('agir', `Ny scen: ${label}`, `${ids.length} enheter.`);
+  return sc;
+}
+
+export function deleteScene(id: string) {
+  set((s) => ({ customScenes: s.customScenes.filter((x) => x.id !== id), scene: s.scene === id ? null : s.scene, lightScene: s.lightScene === id ? null : s.lightScene }));
 }

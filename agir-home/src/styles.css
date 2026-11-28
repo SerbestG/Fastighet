@@ -435,3 +435,34 @@ html[data-nav='back']::view-transition-new(root) { animation-name: vt-in-b; }
 .produkt-namn { font-size: 14px; font-weight: 700; line-height: 1.25; }
 .produkt-sub { font-size: 11px; font-weight: 500; color: var(--dim); line-height: 1.4; }
 .produkt-text { display: flex; flex-direction: column; gap: 4px; }
+
+/* Anslut Home Assistant */
+.falt { display: flex; flex-direction: column; gap: 8px; }
+.falt .agir-input { width: 100%; border-radius: 14px; font-size: 15px; }
+.fel { font-size: 13px; line-height: 1.5; color: var(--varn); }
+.kod { margin: 4px 0; padding: 12px 14px; border-radius: 12px; background: #111214; border: 1px solid var(--linje); font: 12px/1.6 ui-monospace, Menlo, monospace; color: var(--acc-ljus); white-space: pre-wrap; word-break: break-all; -webkit-user-select: text; user-select: text; }
+.enh-rad.koppla { align-items: flex-start; }
+.koppla-val { margin-top: 8px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.12); background: var(--kort2); color: var(--txt); font-size: 14px; }
+
+/* Egna scener */
+.pills.rullar { overflow-x: auto; scrollbar-width: none; margin: 0 -24px; padding: 0 24px; }
+.pills.rullar::-webkit-scrollbar { display: none; }
+.pills.rullar > .pill { flex: none; }
+.pill.ny { border: 1px dashed rgba(212, 180, 131, 0.5); background: transparent; color: var(--acc-ljus); }
+.dialog-bakgrund { position: fixed; inset: 0; z-index: 25; background: rgba(8, 8, 9, 0.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; animation: tona 200ms ease-out; }
+.dialog { width: 100%; max-width: 440px; max-height: 86dvh; overflow-y: auto; padding: 20px 18px calc(24px + var(--bot)); border-radius: 24px 24px 0 0; background: #1F2023; box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; gap: 14px; animation: upp 320ms var(--ease) both; }
+.dialog-titel { font-size: 22px; font-weight: 700; }
+.val-rad { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; border-bottom: 1px solid var(--linje); }
+.val-rad input { width: 22px; height: 22px; accent-color: var(--acc); flex: none; }
+.val-rad .rad-text { padding: 8px 0; }
+
+/* Sortiment */
+.sortiment-hero { margin: 16px 16px 4px; padding: 22px 20px; border-radius: 22px; background: radial-gradient(120% 100% at 100% 0%, rgba(212, 180, 131, 0.22), rgba(212, 180, 131, 0) 60%), var(--kort); display: flex; flex-direction: column; gap: 10px; }
+.sortiment-hero h2 { margin: 0; font-size: 24px; line-height: 1.2; }
+.jamfor { width: calc(100% - 32px); margin: 8px 16px 0; border-collapse: collapse; font-size: 13px; }
+.jamfor th, .jamfor td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--linje); vertical-align: top; }
+.jamfor th { color: var(--dim); font-weight: 600; font-size: 12px; }
+.jamfor td:first-child { font-weight: 600; }
+.ja { color: var(--gron); font-weight: 700; }
+.produkt .pris { font-size: 12px; font-weight: 600; color: var(--acc-ljus); }
+.produkt.vald { border-color: rgba(212, 180, 131, 0.7); background: rgba(212, 180, 131, 0.1); }

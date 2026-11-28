@@ -3,7 +3,8 @@ import { PlanScreen } from '../components/PlanScreen';
 import type { Layer } from '../components/FloorPlan';
 import { AgirButton, Header, Pills, RoundLink } from '../components/ui';
 import { ALARM_MODES, HOME_SCENES, LIGHT_SCENES } from '../home/scenes';
-import { allPlacements, applyScene, placement, setAlarm, useApp, type AppState } from '../state/store';
+import { allPlacements, applyScene, placement, sceneById, setAlarm, useApp, type AppState } from '../state/store';
+import { NewScenePill } from '../components/SceneSaver';
 import { fmtNum, fmtTemp, indoorTemp, kwhToday, openWindows, priceNow, totalPower } from '../state/derived';
 
 const unread = (s: AppState) => s.events.some((e) => e.action && !e.done);
@@ -47,7 +48,7 @@ export function Hem() {
           </div>
         </header>
       }
-      chips={<Pills label="Scener" options={HOME_SCENES} value={s.scene} onPick={(id) => applyScene(HOME_SCENES.find((x) => x.id === id)!)} />}
+      chips={<Pills label="Scener" options={[...HOME_SCENES, ...s.customScenes]} value={s.scene} onPick={(id) => applyScene(sceneById(id)!)} extra={<NewScenePill />} />}
     />
   );
 }
@@ -80,10 +81,11 @@ export function Kontroller() {
 
 export function Ljus() {
   const sc = useApp((x) => x.lightScene);
+  const custom = useApp((x) => x.customScenes);
   return (
     <PlanScreen ctx="ljus" layer="ljus"
       top={<Header title="Ljus" status="Tryck på en lampa och dra" right={<HeaderBell />} />}
-      chips={<Pills label="Ljusscener" options={LIGHT_SCENES} value={sc} onPick={(id) => applyScene(LIGHT_SCENES.find((x) => x.id === id)!, 'light')} />}
+      chips={<Pills label="Ljusscener" options={[...LIGHT_SCENES, ...custom]} value={sc} onPick={(id) => applyScene(sceneById(id)!, 'light')} extra={<NewScenePill />} />}
     />
   );
 }

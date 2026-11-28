@@ -52,14 +52,3 @@ src/
   screens/      De 14 skärmarna
 ```
 
-## Koppla in Home Assistant
-
-Sätt miljövariablerna i Vercel (eller `.env.local`):
-
-```
-VITE_DEVICE_SOURCE=ha
-VITE_HA_URL=https://ditt-hem.duckdns.org
-VITE_HA_TOKEN=<long-lived access token>
-```
-
-Matcha sedan entiteterna i `src/devices/homeAssistantAdapter.ts` (`ENTITY_MAP`). Inget i UI:t behöver ändras. Obs: en token i en webbapp syns för den som har appen – det är okej för ett eget hem men inte för kunder. Till Agir Hub byggs en egen adapter med samma gränssnitt, där inloggningen sköts av hubben.

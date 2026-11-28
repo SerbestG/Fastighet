@@ -1,5 +1,4 @@
-import type { AdapterEvent, AlarmMode, DeviceAdapter, DeviceState, DeviceStates, Snapshot } from './types';
-import { PLACEMENTS } from '../home/model';
+import type { AdapterEvent, AlarmMode, DeviceAdapter, DeviceKind, DeviceState, DeviceStates, Snapshot } from './types';
 import { circadian } from '../home/tones';
 
 /**
@@ -48,8 +47,13 @@ export class HomeAssistantAdapter implements DeviceAdapter {
   private listeners = new Set<(e: AdapterEvent) => void>();
   private byEntity = new Map<string, string>();
 
-  constructor(private baseUrl: string, private token: string) {
-    for (const [id, ent] of Object.entries(ENTITY_MAP)) this.byEntity.set(ent, id);
+  /**
+   * @param map    Agir-enhet → Home Assistant-entitet, t.ex. { l1: 'light.vardagsrum_tak' }
+   * @param kindOf vilken sorts enhet ett Agir-id är (från planlösningen)
+   */
+  constructor(private baseUrl: string, private token: string, private map: Record<string, string> = ENTITY_MAP,
+    private kindOf: (id: string) => DeviceKind | undefined = () => undefined) {
+    for (const [id, ent] of Object.entries(map)) this.byEntity.set(ent, id);
   }
 
   async connect(): Promise<Snapshot> {
@@ -61,7 +65,7 @@ export class HomeAssistantAdapter implements DeviceAdapter {
     for (const s of all) {
       const id = this.byEntity.get(s.entity_id);
       if (id) devices[id] = this.toState(id, s);
-      if (s.entity_id === ALARM_ENTITY) alarm = toAlarm(s.state);
+      if (s.entity_id === (this.map.alarm ?? ALARM_ENTITY)) alarm = toAlarm(s.state);
     }
     this.openSocket();
     return { devices, alarm };
@@ -79,8 +83,8 @@ export class HomeAssistantAdapter implements DeviceAdapter {
   }
 
   async setDevice(id: string, patch: Partial<DeviceState>) {
-    const entity = ENTITY_MAP[id];
-    const kind = PLACEMENTS.find((x) => x.id === id)?.kind;
+    const entity = this.map[id];
+    const kind = this.kindOf(id);
     if (!entity || !kind) return;
     const call = (domain: string, service: string, data: Record<string, unknown> = {}) =>
       this.call(domain, service, { entity_id: entity, ...data });
@@ -126,7 +130,7 @@ export class HomeAssistantAdapter implements DeviceAdapter {
 
   async setAlarm(mode: AlarmMode) {
     const service = mode === 'off' ? 'alarm_disarm' : mode === 'perimeter' ? 'alarm_arm_home' : 'alarm_arm_away';
-    await this.call('alarm_control_panel', service, { entity_id: ALARM_ENTITY });
+    await this.call('alarm_control_panel', service, { entity_id: this.map.alarm ?? ALARM_ENTITY });
   }
 
   async addDevice() {
@@ -154,7 +158,7 @@ export class HomeAssistantAdapter implements DeviceAdapter {
       } else if (msg.type === 'event') {
         const ns = msg.event?.data?.new_state as HAState | undefined;
         if (!ns) return;
-        if (ns.entity_id === ALARM_ENTITY) { this.emit({ type: 'alarm', mode: toAlarm(ns.state) }); return; }
+        if (ns.entity_id === (this.map.alarm ?? ALARM_ENTITY)) { this.emit({ type: 'alarm', mode: toAlarm(ns.state) }); return; }
         const id = this.byEntity.get(ns.entity_id);
         if (id) this.emit({ type: 'device', id, state: this.toState(id, ns), source: 'device' });
       }
@@ -169,7 +173,7 @@ export class HomeAssistantAdapter implements DeviceAdapter {
 
   private toState(id: string, s: HAState): DeviceState {
     const a = s.attributes;
-    const kind = PLACEMENTS.find((x) => x.id === id)?.kind;
+    const kind = this.kindOf(id);
     const changedAt = Date.parse(s.last_changed);
     switch (kind) {
       case 'relay': return { on: s.state === 'on', value: 0, changedAt };
@@ -202,4 +206,42 @@ function toAlarm(state: string): AlarmMode {
   if (state === 'armed_away' || state === 'armed_night') return 'full';
   if (state === 'armed_home') return 'perimeter';
   return 'off';
+}
+
+/* ---------- för "Anslut Home Assistant" i appen ---------- */
+
+export interface HAEntity { id: string; name: string; domain: string; kind: DeviceKind | null; state: string }
+
+const KIND_BY_DOMAIN: Record<string, DeviceKind> = {
+  light: 'light', switch: 'relay', cover: 'blind', climate: 'heat', lock: 'lock', media_player: 'media', camera: 'camera',
+};
+
+/** Gissar vilken sorts Agir-enhet en entitet är. */
+function guessKind(e: HAState): DeviceKind | null {
+  const domain = e.entity_id.split('.')[0];
+  if (domain === 'binary_sensor') {
+    const dc = String(e.attributes.device_class ?? '');
+    if (dc === 'moisture') return 'leak';
+    if (dc === 'window' || dc === 'door' || dc === 'opening') return 'window';
+    if (dc === 'motion' || dc === 'occupancy' || dc === 'presence') return 'motion';
+    return null;
+  }
+  return KIND_BY_DOMAIN[domain] ?? null;
+}
+
+/** Hämtar allt som går att styra från Home Assistant. Kastar ett fel med en begriplig text om det inte går. */
+export async function fetchEntities(baseUrl: string, token: string): Promise<HAEntity[]> {
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/states`, { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    throw new Error('Kom inte fram. Kontrollera adressen, att den börjar med https://, och att Agirs adress är tillåten i Home Assistant (se nedan).');
+  }
+  if (res.status === 401) throw new Error('Nyckeln godkändes inte. Skapa en ny long-lived access token i din profil i Home Assistant.');
+  if (!res.ok) throw new Error(`Home Assistant svarade ${res.status}.`);
+  const all = (await res.json()) as HAState[];
+  return all
+    .map((e) => ({ id: e.entity_id, name: String(e.attributes.friendly_name ?? e.entity_id), domain: e.entity_id.split('.')[0], kind: guessKind(e), state: e.state }))
+    .filter((e) => e.kind)
+    .sort((a, b) => a.name.localeCompare(b.name, 'sv'));
 }
