@@ -52,3 +52,17 @@ src/
   screens/      De 14 skärmarna
 ```
 
+
+## Koppla in Home Assistant
+
+Direkt i appen: **Inställningar → Home Assistant**. Skriv in adressen (till exempel Home Assistant Cloud) och en long-lived access token, välj vilka enheter som ska kopplas och i vilket rum. Kopplade enheter blir riktiga, resten av huset fortsätter som demo. Nyckeln sparas bara i telefonen.
+
+Home Assistant måste tillåta appens adress i `configuration.yaml`:
+
+```yaml
+http:
+  cors_allowed_origins:
+    - https://din-agir-adress.vercel.app
+```
+
+Alternativt via miljövariabler i Vercel (`VITE_DEVICE_SOURCE=ha`, `VITE_HA_URL`, `VITE_HA_TOKEN`) och `ENTITY_MAP` i `src/devices/homeAssistantAdapter.ts`. En token i en webbapp syns för den som har appen – okej för ett eget hem, inte för kunder. Agir Hub får en egen adapter med samma gränssnitt, där inloggningen sköts av hubben.
