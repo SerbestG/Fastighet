@@ -1,5 +1,5 @@
 import type { DeviceStates } from '../devices/types';
-import { ROOMS, type Placement } from '../home/model';
+import { isLightLike, ROOMS, type Placement } from '../home/model';
 import type { AppState } from './store';
 import { allPlacements } from './store';
 
@@ -13,7 +13,7 @@ export const PRICE_CURVE = [0.24, 0.2, 0.18, 0.18, 0.19, 0.26, 0.58, 1.12, 1.34,
 export const priceNow = () => PRICE_CURVE[new Date().getHours()];
 
 export function lightsOn(s: AppState) {
-  return allPlacements(s).filter((p) => p.kind === 'light' && s.devices[p.id]?.on);
+  return allPlacements(s).filter((p) => isLightLike(p) && s.devices[p.id]?.on);
 }
 
 export function openWindows(s: AppState) {
@@ -45,6 +45,11 @@ export function devicePower(p: Placement, d: DeviceStates): number {
       return 0;
     }
     case 'camera': return 0.005;
+    case 'strip': return s.on ? 0.03 * (s.value / 100) + 0.002 : 0;
+    case 'relay': return s.on ? (p.name.toLowerCase().includes('fläkt') ? 0.025 : 0.04) : 0;
+    case 'plug':
+      if (!s.on) return 0.001;
+      return p.variant === 'dim' ? 0.035 * (s.value / 100) + 0.003 : (s.power ?? 0.05);
     default: return 0;
   }
 }
@@ -66,3 +71,32 @@ export function kwhToday(s: AppState) {
 }
 
 export const heatColor = (t: number) => (t >= 23.5 ? '226,96,52' : t >= 21.5 ? '240,146,80' : t >= 20.5 ? '242,190,120' : '110,150,210');
+
+const ago = (t?: number) => {
+  if (!t) return 'ingen rörelse idag';
+  const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? 'rörelse nu' : m < 60 ? `rörelse för ${m} min sedan` : `rörelse ${clock(t)}`;
+};
+
+/** Kort status för en enhet, t.ex. "70 % · varm" eller "Låst". */
+export function deviceStatus(p: Placement, s: AppState): string {
+  const d = s.devices[p.id];
+  if (!d) return 'Ansluter …';
+  const timer = d.on && d.timerUntil ? ` · av ${clock(d.timerUntil)}` : '';
+  switch (p.kind) {
+    case 'light': case 'strip': return d.on ? `${d.value} %${d.tone === 'auto' ? ' · dygnsrytm' : ''}${timer}` : 'Av';
+    case 'plug': return d.on ? (p.variant === 'dim' ? `${d.value} %` : `På · ${fmtKw(devicePower(p, s.devices))}`) + timer : 'Av';
+    case 'relay': return (d.on ? 'På' : 'Av') + timer;
+    case 'heat': return d.mode === 'off' || !d.on ? 'Av' : `${fmtTemp(d.reading ?? d.value)} → ${fmtTemp(d.value)}`;
+    case 'lock': return d.on ? 'Låst' : 'Olåst';
+    case 'blind': return d.value === 0 ? 'Stängd' : d.value === 100 ? 'Öppen' : `${d.value} % öppen`;
+    case 'camera': return d.on ? 'Live' : 'Offline';
+    case 'leak': return d.alert ? 'Vatten!' : d.on ? 'Torrt' : 'Vattnet avstängt';
+    case 'window': return d.on ? 'Stängt' : 'Öppet';
+    case 'media': return d.on ? `Spelar · ${d.value} %` : 'Pausad';
+    case 'charger': return d.mode === 'now' ? 'Laddar nu' : d.mode === 'pause' ? 'Pausad' : 'Smart laddning';
+    case 'motion': return `${d.on ? 'Tänder vid rörelse' : 'Bara avkänning'} · ${ago(d.lastMotion)}`;
+    case 'button': return { toggle: 'Tänd/släck rummet', natt: 'Godnatt', 'allt-av': 'Allt av', film: 'Film' }[d.mode as string] ?? 'Tänd/släck rummet';
+    default: return '';
+  }
+}

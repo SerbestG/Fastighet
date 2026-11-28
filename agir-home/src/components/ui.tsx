@@ -3,15 +3,17 @@ import { go } from '../router';
 import { Icon } from './Icon';
 
 /** Pill-knappar med glödprick. */
-export function Pills<T extends string>({ options, value, onPick, label, wide }: {
+export function Pills<T extends string>({ options, value, onPick, label, wide, extra }: {
   options: { id: T; label: string; dot: string }[];
   value: T | null;
   onPick: (id: T) => void;
   label: string;
   wide?: boolean;
+  /** Extra knapp sist i raden, t.ex. "+ Ny scen". Raden blir då rullbar. */
+  extra?: ReactNode;
 }) {
   return (
-    <div role="group" aria-label={label} className={'pills' + (wide ? ' pills-wide' : '')}>
+    <div role="group" aria-label={label} className={'pills' + (wide ? ' pills-wide' : '') + (extra ? ' rullar' : '')}>
       {options.map((o) => {
         const on = o.id === value;
         return (
@@ -21,6 +23,7 @@ export function Pills<T extends string>({ options, value, onPick, label, wide }:
           </button>
         );
       })}
+      {extra}
     </div>
   );
 }

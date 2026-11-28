@@ -28,6 +28,10 @@ export class MockAdapter implements DeviceAdapter {
   private timer: number | undefined;
 
   async connect(): Promise<Snapshot> {
+    // Signalstyrka per enhet – fast värde per id så att den inte hoppar.
+    for (const [id, s] of Object.entries(this.state.devices)) {
+      if (s.signal === undefined) s.signal = 58 + ([...id].reduce((a, c) => a + c.charCodeAt(0) * 7, 0) % 40);
+    }
     this.timer = window.setInterval(() => this.tick(), 6000);
     return { devices: structuredClone(this.state.devices), alarm: this.state.alarm, outdoor: -3, pricePerKwh: 0.42 };
   }
@@ -79,6 +83,13 @@ export class MockAdapter implements DeviceAdapter {
       if (Math.abs(diff) < 0.05) continue;
       const reading = Math.round((s.reading + Math.sign(diff) * Math.min(0.1, Math.abs(diff))) * 10) / 10;
       this.state.devices[id] = { ...s, reading };
+      this.emit({ type: 'device', id, state: this.state.devices[id], source: 'device' });
+      changed = true;
+    }
+    // Rörelsevakterna känner av rörelse då och då.
+    for (const [id, s] of Object.entries(this.state.devices)) {
+      if (!id.startsWith('mo') || Math.random() > 0.1) continue;
+      this.state.devices[id] = { ...s, lastMotion: Date.now(), lux: Math.round(8 + Math.random() * 40) };
       this.emit({ type: 'device', id, state: this.state.devices[id], source: 'device' });
       changed = true;
     }

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { createAdapter } from '../devices';
-import type { AlarmMode, DeviceKind, DeviceState, DeviceStates } from '../devices/types';
-import { defaultState, PLACEMENTS, roomById, type FloorId, type Placement } from '../home/model';
+import type { AlarmMode, ButtonAction, DeviceKind, DeviceState, DeviceStates } from '../devices/types';
+import { defaultState, isLightLike, PLACEMENTS, roomById, type FloorId, type Placement } from '../home/model';
 import { ALARM_MODES, HOME_SCENES, LIGHT_SCENES, type Scene } from '../home/scenes';
 
 export type EventCat = 'sak' | 'klim' | 'energi' | 'agir';
@@ -16,7 +16,11 @@ export interface HomeEvent {
   done?: boolean;
 }
 
-export interface Automation { id: string; name: string; sub: string; on: boolean }
+/**
+ * När: 'time:HH:MM' | 'sun' (solnedgång) | 'cheap' (billigaste elen) | 'home' (Hemma-scenen) | 'leave' (Borta) | 'door' (dörren låses upp) | 'leak'
+ * Gör: 'hall' | 'varme' | 'pers' | 'musik' | 'las' | 'scene:<id>' | 'water-off' | 'wake' | 'plug-off:<id>'
+ */
+export interface Automation { id: string; name: string; sub: string; on: boolean; when?: string; dos?: string[]; lastRun?: number }
 
 export interface Member { id: string; name: string; initial: string; role: string; color: string; desc: string }
 export type PermKey = 'ljus' | 'varme' | 'las' | 'larm' | 'kamera' | 'ladd';
@@ -42,12 +46,15 @@ export interface AppState {
   dismissed: string[];
   notify: Record<string, boolean>;
   update: 'ny' | 'natt' | 'klar';
+  /** Egna scener som användaren sparat. */
+  customScenes: Scene[];
   /** Visningsläge för 3D-huset – delas av alla skärmar. */
   view: { floor: FloorId; mode: '2d' | '3d'; rz: number; rx: number; zoom: number };
 }
 
 const APP_KEY = 'agir.app.v1';
-const today = (h: number, m: number) => { const d = new Date(); d.setHours(h, m, 0, 0); return d.getTime(); };
+// Demohändelsernas klockslag: idag om tiden redan passerats, annars igår – aldrig i framtiden.
+const today = (h: number, m: number) => { const d = new Date(); d.setHours(h, m, 0, 0); if (d.getTime() > Date.now()) d.setDate(d.getDate() - 1); return d.getTime(); };
 
 const SEED_EVENTS: HomeEvent[] = [
   { id: 'bud', at: today(21, 38), cat: 'sak', title: 'Bud vid porten', sub: 'Kameran ser ett paket. Öppna porten?', action: { label: 'Öppna porten', done: 'Porten öppnad', run: 'port' } },
@@ -85,10 +92,11 @@ const DEFAULT: AppState = {
   onboarded: false, wake: '06:30', comfort: 22, dismissed: [],
   notify: { lacka: true, las: true, larm: true, agir: true, pris: false },
   update: 'ny',
+  customScenes: [],
   view: { floor: 'e', mode: '3d', rz: -38, rx: 56, zoom: 0.8 },
 };
 
-const PERSISTED: (keyof AppState)[] = ['scene', 'lightScene', 'extra', 'events', 'automations', 'members', 'perms', 'onboarded', 'wake', 'comfort', 'dismissed', 'notify', 'update', 'view'];
+const PERSISTED: (keyof AppState)[] = ['scene', 'lightScene', 'extra', 'events', 'automations', 'members', 'perms', 'onboarded', 'wake', 'comfort', 'dismissed', 'notify', 'update', 'view', 'customScenes'];
 
 function loadApp(): AppState {
   try {
@@ -120,17 +128,24 @@ export function useApp<T>(sel: (s: AppState) => T): T {
 
 /* ---------- enhetskälla ---------- */
 
-const adapter = createAdapter();
+const adapter = createAdapter((id) => placement(id)?.kind);
 
 export async function boot() {
   adapter.subscribe((e) => {
-    if (e.type === 'device') set((s) => ({ devices: { ...s.devices, [e.id]: e.state } }));
+    if (e.type === 'device') {
+      const before = state.devices[e.id];
+      set((s) => ({ devices: { ...s.devices, [e.id]: e.state } }));
+      if (e.state.lastMotion && e.state.lastMotion !== before?.lastMotion) onMotion(e.id);
+      if (e.state.alert && !before?.alert && placement(e.id)?.kind === 'leak') trigger('leak');
+    }
     else if (e.type === 'alarm') set({ alarm: e.mode });
     else if (e.type === 'connection') set({ online: e.online });
   });
   try {
     const snap = await adapter.connect();
     set({ ready: true, source: adapter.label, devices: snap.devices, alarm: snap.alarm, outdoor: snap.outdoor ?? state.outdoor, price: snap.pricePerKwh ?? state.price });
+    // Timrar som löpte medan appen var stängd.
+    for (const [id, d] of Object.entries(snap.devices)) if (d.on && d.timerUntil) scheduleOff(id, d.timerUntil);
   } catch {
     set({ ready: true, online: false, source: adapter.label });
   }
@@ -152,13 +167,85 @@ function optimistic(patches: Record<string, Partial<DeviceState>>) {
 }
 
 let autoLock: number | undefined;
+const offTimers = new Map<string, number>();
+
+/** Stänger av en enhet vid en viss tidpunkt (timer på relä, plugg och lampor). */
+function scheduleOff(id: string, at: number) {
+  window.clearTimeout(offTimers.get(id));
+  const run = () => {
+    offTimers.delete(id);
+    const d = state.devices[id];
+    if (!d || !d.on || d.timerUntil !== at) return;
+    optimistic({ [id]: { on: false, timerUntil: undefined } });
+    void adapter.setDevice(id, { on: false, timerUntil: undefined });
+    const p = placement(id);
+    if (p) logEvent('energi', `${p.name} stängdes av`, 'Timern gick ut.', true);
+  };
+  const ms = at - Date.now();
+  if (ms <= 0) run(); else offTimers.set(id, window.setTimeout(run, Math.min(ms, 2 ** 31 - 1)));
+}
+
+/* Rörelsevakten: tänder rummet när någon kommer in och det är mörkt, släcker när det blivit tomt. */
+const motionOff = new Map<string, number>();
+const motionLit = new Map<string, string[]>();
+function onMotion(id: string) {
+  const p = placement(id);
+  const d = state.devices[id];
+  if (!p || p.kind !== 'motion' || !d?.on) return;
+  const hour = new Date().getHours();
+  const dark = hour >= 16 || hour < 8 || (d.lux ?? 100) < 20;
+  const lamps = allPlacements().filter((x) => x.room === p.room && isLightLike(x));
+  const allOff = lamps.every((l) => !state.devices[l.id]?.on);
+  const night = hour >= 23 || hour < 6;
+  if (allOff && dark && lamps.length) {
+    const level = night ? 8 : 70;
+    setMany(Object.fromEntries(lamps.map((l) => [l.id, { on: true, value: level }])));
+    motionLit.set(p.room, lamps.map((l) => l.id));
+    logEvent('agir', `${roomById(p.room)?.name} tändes`, night ? 'Rörelse i natt · svagt nattljus.' : 'Rörelse och mörkt.', true);
+  }
+  // Släck bara det Agir själv tände, efter vald tid utan rörelse.
+  const lit = motionLit.get(p.room);
+  if (!lit) return;
+  window.clearTimeout(motionOff.get(p.room));
+  motionOff.set(p.room, window.setTimeout(() => {
+    setMany(Object.fromEntries(lit.map((l) => [l, { on: false }])));
+    motionLit.delete(p.room);
+  }, Math.max(1, d.value) * 60000));
+}
+
+const ACTION_LABEL: Record<ButtonAction, string> = { toggle: 'Tänd/släck rummet', natt: 'Godnatt', 'allt-av': 'Allt av', film: 'Film' };
+export const BUTTON_ACTIONS = (Object.keys(ACTION_LABEL) as ButtonAction[]).map((id) => ({ id, label: ACTION_LABEL[id] }));
+
+/** Vad som händer när någon trycker på en trådlös knapp. */
+export function pressButton(id: string) {
+  const p = placement(id);
+  const d = state.devices[id];
+  if (!p || !d) return;
+  const mode = (d.mode as ButtonAction) ?? 'toggle';
+  if (mode === 'toggle') {
+    const lamps = allPlacements().filter((x) => x.room === p.room && isLightLike(x));
+    const on = lamps.some((l) => state.devices[l.id]?.on);
+    setMany(Object.fromEntries(lamps.map((l) => [l.id, { on: !on, value: state.devices[l.id]?.value || 70 }])));
+  } else if (mode === 'allt-av') {
+    setMany(Object.fromEntries(allPlacements().filter((x) => isLightLike(x) && state.devices[x.id]?.on).map((x) => [x.id, { on: false }])));
+  } else {
+    const sc = sceneById(mode);
+    if (sc) applyScene(sc);
+  }
+  logEvent('agir', `${p.name}: ${ACTION_LABEL[mode]}`, `${roomById(p.room)?.name} · tryck.`);
+}
 
 export function setDevice(id: string, patch: Partial<DeviceState>) {
+  // Släcks enheten tas timern bort; sätts en ny timer schemaläggs den.
+  if (patch.on === false && state.devices[id]?.timerUntil) patch = { ...patch, timerUntil: undefined };
   optimistic({ [id]: patch });
   void adapter.setDevice(id, patch);
+  if (patch.timerUntil) scheduleOff(id, patch.timerUntil);
+  else if (patch.on === false) window.clearTimeout(offTimers.get(id));
   const p = placement(id);
   if (p?.kind === 'lock' && patch.on !== undefined) {
     logEvent('sak', patch.on ? 'Ytterdörren låstes' : 'Ytterdörren låstes upp', 'Från appen.');
+    if (!patch.on) trigger('door');
     window.clearTimeout(autoLock);
     // Agir låser igen efter två minuter, som appen lovar.
     if (!patch.on) autoLock = window.setTimeout(() => {
@@ -182,11 +269,13 @@ export function applyScene(sc: Scene, kind: 'home' | 'light' = 'home') {
   if (sc.alarm) setAlarm(sc.alarm, false);
   if (kind === 'home') set({ scene: sc.id });
   else set({ lightScene: sc.id });
+  if (sc.id === 'hemma') trigger('home');
+  if (sc.id === 'borta') trigger('leave');
   logEvent('agir', `Scenen ${sc.label} startade`, 'Från appen.');
 }
 
 export function sceneById(id: string) {
-  return [...HOME_SCENES, ...LIGHT_SCENES].find((s) => s.id === id);
+  return [...HOME_SCENES, ...LIGHT_SCENES, ...state.customScenes].find((s) => s.id === id);
 }
 
 export function setAlarm(mode: AlarmMode, log = true) {
@@ -195,12 +284,12 @@ export function setAlarm(mode: AlarmMode, log = true) {
   if (log) logEvent('sak', ALARM_MODES.find((m) => m.id === mode)!.label, mode === 'off' ? 'Larmet stängdes av.' : 'Larmet slogs på.');
 }
 
-export function addDevice(kind: DeviceKind, room: string, name: string) {
+export function addDevice(kind: DeviceKind, room: string, name: string, product?: string, variant?: string) {
   const rm = roomById(room)!;
   const n = state.extra.length;
   const id = `x${Date.now().toString(36)}`;
   const pl: Placement = {
-    id, kind, room, floor: rm.floor, name,
+    id, kind, room, floor: rm.floor, name, product, variant,
     x: Math.round(rm.x + rm.w * (0.3 + 0.4 * ((n * 0.37) % 1))),
     y: Math.round(rm.y + rm.h * 0.4),
   };
@@ -226,9 +315,72 @@ export const patchApp = (p: Partial<AppState>) => set(p);
 export function toggleAutomation(id: string) {
   set((s) => ({ automations: s.automations.map((a) => (a.id === id ? { ...a, on: !a.on } : a)) }));
 }
-export function addAutomation(name: string, sub: string) {
-  set((s) => ({ automations: [{ id: `a${Date.now().toString(36)}`, name, sub, on: true }, ...s.automations] }));
+export function addAutomation(name: string, sub: string, when?: string, dos?: string[]) {
+  set((s) => ({ automations: [{ id: `a${Date.now().toString(36)}`, name, sub, on: true, when, dos }, ...s.automations] }));
 }
+
+/* ---------- automationerna körs på riktigt ---------- */
+
+// Automationer från tidigare versioner saknar när/gör – de får sina regler här.
+const SEED_RULES: Record<string, { when: string; dos: string[] }> = {
+  a1: { when: 'time:23:00', dos: ['scene:natt'] },
+  a2: { when: 'leave', dos: ['las'] },
+  a3: { when: 'cheap', dos: ['cheap'] },
+  a4: { when: 'leak', dos: ['water-off'] },
+  a5: { when: 'sun', dos: ['scene:middag'] },
+};
+const rule = (a: Automation) => (a.when ? { when: a.when, dos: a.dos ?? [] } : SEED_RULES[a.id]);
+
+/** Ungefärlig solnedgång i Mellansverige per månad (timme, minut). */
+const SUNSET: [number, number][] = [[15, 15], [16, 20], [17, 45], [19, 55], [21, 5], [22, 0], [21, 45], [20, 40], [19, 15], [17, 50], [15, 55], [14, 55]];
+
+function runAction(d: string) {
+  const P = allPlacements();
+  const first = (k: DeviceKind) => P.find((p) => p.kind === k);
+  if (d.startsWith('scene:')) { const sc = sceneById(d.slice(6)); if (sc) applyScene(sc, LIGHT_SCENES.includes(sc) ? 'light' : 'home'); return; }
+  if (d.startsWith('plug-off:')) { setDevice(d.slice(9), { on: false }); return; }
+  switch (d) {
+    case 'hall': { const l = P.find((p) => p.room === 'hall' && isLightLike(p)); if (l) setDevice(l.id, { on: true, value: 60 }); return; }
+    case 'varme': P.filter((p) => p.kind === 'heat').forEach((p) => { const st = state.devices[p.id]; if (st) setDevice(p.id, { on: true, mode: 'comfort', value: Math.min(30, st.value + 1) }); }); return;
+    case 'pers': P.filter((p) => p.kind === 'blind').forEach((p) => setDevice(p.id, { on: true, value: 0 })); return;
+    case 'musik': { const m = first('media'); if (m) setDevice(m.id, { on: true }); return; }
+    case 'las': { const l = first('lock'); if (l && !state.devices[l.id]?.on) setDevice(l.id, { on: true }); return; }
+    case 'water-off': P.filter((p) => p.kind === 'leak').forEach((p) => setDevice(p.id, { on: false })); return;
+    case 'wake': P.filter((p) => p.room === 'sov' && isLightLike(p)).forEach((p) => setDevice(p.id, { on: true, value: 30, tone: 'auto' })); return;
+    case 'cheap': {
+      const c = first('charger'); if (c && state.devices[c.id]?.mode === 'smart') logEvent('energi', 'Billig el: laddar bilen', 'Smart laddning startade.', true);
+      return;
+    }
+  }
+}
+
+export function runAutomation(a: Automation, reason = '') {
+  const r = rule(a);
+  if (!r || !a.on) return;
+  r.dos.forEach(runAction);
+  set((s) => ({ automations: s.automations.map((x) => (x.id === a.id ? { ...x, lastRun: Date.now() } : x)) }));
+  logEvent('agir', `Automation: ${a.name}`, reason || a.sub, true);
+}
+
+/** Kör alla aktiva automationer som har en viss händelse som "När". */
+export function trigger(event: string) {
+  state.automations.filter((a) => a.on && rule(a)?.when === event).forEach((a) => runAutomation(a));
+}
+
+// Tidsstyrda automationer kontrolleras varje halvminut.
+function tick() {
+  const now = new Date();
+  const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const [sh, sm] = SUNSET[now.getMonth()];
+  const sun = now.getHours() === sh && now.getMinutes() === sm;
+  const cheap = hm === '02:00';
+  for (const a of state.automations) {
+    const r = rule(a);
+    if (!r || !a.on || (a.lastRun && Date.now() - a.lastRun < 90000)) continue;
+    if (r.when === `time:${hm}` || (r.when === 'sun' && sun) || (r.when === 'cheap' && cheap)) runAutomation(a);
+  }
+}
+window.setInterval(tick, 30000);
 export function togglePerm(member: string, key: PermKey) {
   set((s) => ({ perms: { ...s.perms, [member]: { ...s.perms[member], [key]: !s.perms[member][key] } } }));
 }
@@ -236,4 +388,24 @@ export function togglePerm(member: string, key: PermKey) {
 export function resetDemo() {
   try { localStorage.removeItem(APP_KEY); localStorage.removeItem('agir.mock.v1'); } catch { /* ignoreras */ }
   location.href = '/';
+}
+
+/* ---------- egna scener ---------- */
+
+/** Sparar hur de valda enheterna står just nu som en scen. */
+export function saveScene(label: string, ids: string[], dot: string) {
+  const patches: Scene['patches'] = {};
+  for (const id of ids) {
+    const d = state.devices[id];
+    if (!d) continue;
+    patches[id] = d.on ? { on: true, value: d.value, ...(d.tone ? { tone: d.tone } : {}) } : { on: false };
+  }
+  const sc: Scene = { id: `s${Date.now().toString(36)}`, label, dot, patches, say: `Scenen ${label} är på.` };
+  set((s) => ({ customScenes: [...s.customScenes, sc], scene: sc.id }));
+  logEvent('agir', `Ny scen: ${label}`, `${ids.length} enheter.`);
+  return sc;
+}
+
+export function deleteScene(id: string) {
+  set((s) => ({ customScenes: s.customScenes.filter((x) => x.id !== id), scene: s.scene === id ? null : s.scene, lightScene: s.lightScene === id ? null : s.lightScene }));
 }

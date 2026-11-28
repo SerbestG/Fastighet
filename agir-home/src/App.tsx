@@ -7,17 +7,22 @@ import { Meny } from './screens/Meny';
 import { Agir } from './screens/Agir';
 import { Automationer, Handelser, Hushallet, Installningar } from './screens/Lists';
 import { LaggTill, Valkommen } from './screens/Flows';
+import { Enheter } from './screens/Enheter';
+import { Anslut } from './screens/Anslut';
+import { Sortiment } from './screens/Sortiment';
 
 const ROUTES: Record<string, () => JSX.Element> = {
   '/': Hem, '/kontroller': Kontroller, '/ljus': Ljus, '/klimat': Klimat, '/energi': Energi, '/sakerhet': Sakerhet,
   '/meny': Meny, '/agir': Agir, '/automationer': Automationer, '/hushallet': Hushallet, '/installningar': Installningar,
-  '/handelser': Handelser, '/lagg-till': LaggTill, '/valkommen': Valkommen,
+  '/handelser': Handelser, '/lagg-till': LaggTill, '/valkommen': Valkommen, '/enheter': Enheter,
+  '/anslut': Anslut, '/sortiment': Sortiment,
 };
 
 const TITLES: Record<string, string> = {
   '/': 'Villa Agir', '/kontroller': 'Kontroller', '/ljus': 'Ljus', '/klimat': 'Klimat', '/energi': 'Energi', '/sakerhet': 'Säkerhet',
   '/meny': 'Meny', '/agir': 'Agir', '/automationer': 'Automationer', '/hushallet': 'Hushållet', '/installningar': 'Inställningar',
-  '/handelser': 'Händelser', '/lagg-till': 'Lägg till enhet', '/valkommen': 'Välkommen',
+  '/handelser': 'Händelser', '/lagg-till': 'Lägg till enhet', '/valkommen': 'Välkommen', '/enheter': 'Enheter och rum',
+  '/anslut': 'Home Assistant', '/sortiment': 'Sortiment',
 };
 
 export function App() {

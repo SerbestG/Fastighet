@@ -61,6 +61,29 @@ export function insightFor(s: AppState, ctx: Context): Insight {
       action: { label: 'Ladda smart', run: () => setDevice(charger.id, { mode: 'smart' }) } });
   }
 
+  // Saker som står på i onödan: kaffebryggaren, fläkten, utebelysningen mitt på dagen.
+  for (const p of P.filter((x) => (x.kind === 'plug' && x.variant !== 'dim') || x.kind === 'relay')) {
+    const st = d[p.id];
+    if (!st?.on || st.timerUntil) continue;
+    const mins = st.changedAt ? (Date.now() - st.changedAt) / 60000 : 0;
+    const name = p.name.toLowerCase();
+    if (p.kind === 'plug' && mins > 40) {
+      out.push({ id: 'plugg-' + p.id + '-' + Math.floor((st.changedAt ?? 0) / 1e6), prio: 65, ctx: ['hem', 'energi', 'kontroller', 'ljus'],
+        text: `${p.name} har stått på i ${Math.round(mins)} minuter. Ska jag stänga av den?`,
+        action: { label: 'Stäng av', run: () => setDevice(p.id, { on: false }) } });
+    } else if (name.includes('fläkt') && mins > 30) {
+      const mo = P.find((x) => x.kind === 'motion' && x.room === p.room);
+      const quiet = !mo || !d[mo.id]?.lastMotion || Date.now() - d[mo.id].lastMotion! > 20 * 60000;
+      if (quiet) out.push({ id: 'flakt-' + p.id, prio: 40, ctx: ['hem', 'energi', 'kontroller'],
+        text: `Fläkten ${roomById(p.room)?.def === 'toaletten' ? 'på toaletten' : 'i ' + roomById(p.room)?.def} har gått i ${Math.round(mins)} min. Ska jag stänga av den om 10 minuter?`,
+        action: { label: 'Av om 10 min', run: () => setDevice(p.id, { timerUntil: Date.now() + 10 * 60000 }) } });
+    } else if (name.includes('ute') && hour >= 9 && hour < 15) {
+      out.push({ id: 'ute-' + p.id, prio: 35, ctx: ['hem', 'energi', 'ljus'],
+        text: 'Utebelysningen är tänd mitt på dagen. Ska jag släcka den och tända igen vid solnedgången?',
+        action: { label: 'Släck', run: () => setDevice(p.id, { on: false }) } });
+    }
+  }
+
   const lit = lightsOn(s);
   if ((hour >= 23 || hour < 5) && lit.length >= 3 && s.scene !== 'natt') {
     const natt = HOME_SCENES.find((x) => x.id === 'natt')!;

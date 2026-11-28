@@ -1,5 +1,5 @@
 import type { DeviceState } from '../devices/types';
-import { ROOMS } from '../home/model';
+import { isLightLike, ROOMS } from '../home/model';
 import { HOME_SCENES } from '../home/scenes';
 import { allPlacements, applyScene, getState, logEvent, setAlarm, setDevice, setMany } from '../state/store';
 import { fmtNum, fmtTemp, indoorTemp, lightsOn, openWindows, priceNow, PRICE_CURVE } from '../state/derived';
@@ -28,7 +28,25 @@ export function handle(input: string): Reply {
   const s = getState();
   const P = allPlacements(s);
   const rooms = findRooms(t);
-  const inRooms = (kind: string) => P.filter((p) => p.kind === kind && (rooms.length === 0 || rooms.includes(p.room)));
+  const inRooms = (kind: string) => P.filter((p) => (kind === 'light' ? isLightLike(p) : p.kind === kind) && (rooms.length === 0 || rooms.includes(p.room)));
+
+  // Enheter som nämns vid namn: "stäng av fläkten", "sätt på kaffebryggaren", "tänd ledlisten".
+  const named = P.filter((p) => ['relay', 'plug', 'strip'].includes(p.kind)).find((p) => {
+    const n = p.name.toLowerCase().replace(/[^a-zåäö]/g, '');
+    const stem = n.split(/säng|dörren/)[0];
+    return t.replace(/[^a-zåäö ]/g, '').replace(/ /g, '').includes(stem.slice(0, Math.max(4, stem.length - 2)));
+  });
+  if (named) {
+    const off = /stäng|släck|av\b|stoppa/.test(t);
+    const m = t.match(/(\d+)\s*(min|tim)/);
+    const mins = m ? Number(m[1]) * (m[2] === 'tim' ? 60 : 1) : 0;
+    const timerUntil = !off && mins ? Date.now() + mins * 60000 : undefined;
+    setDevice(named.id, off ? { on: false } : { on: true, ...(timerUntil ? { timerUntil } : {}) });
+    // Bestämd form: fläkten, kaffebryggaren, golvlampan, LED-listen.
+    const def = named.name.includes(' ') ? named.name : /[ae]$/.test(named.name) ? named.name + 'n' : named.name + 'en';
+    const nm = def.toLowerCase();
+    return { title: off ? `${def} är avstängd.` : `${def} är på.`, detail: timerUntil ? `Jag stänger av ${nm} om ${mins} min.` : off ? '' : `Säg "stäng av ${nm} om 30 min" så sätter jag en timer.` };
+  }
 
   if (/mysig|myspys|mys/.test(t)) {
     setMany({ l1: { on: true, value: 30, tone: 'warm' }, l3: { on: true, value: 25, tone: 'warm' }, l2: { on: false }, b1: { on: true, value: 0 }, m1: { on: true, value: 20 } });
