@@ -30,7 +30,7 @@ export function Hem() {
   const win = openWindows(s).length;
   const lugn = olast ? 'Dörren är olåst' : win ? `${win} fönster öppet` : 'Allt är lugnt';
   return (
-    <PlanScreen ctx="hem" layer="allt" nav
+    <PlanScreen ctx="hem" layer="hem" nav
       top={
         <header className="head">
           <span className="varumarke">AGIR HOME</span>

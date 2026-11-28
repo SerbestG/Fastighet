@@ -3,7 +3,7 @@ import { AgirTip, Chip, Done, Header, Link, Row, SectionLabel, Switch } from '..
 import { Icon, type IconName } from '../components/Icon';
 import { toast } from '../components/toast';
 import {
-  addAutomation, allPlacements, deleteScene, dismiss, markEventDone, patchApp, resetDemo, toggleAutomation, togglePerm,
+  addAutomation, allPlacements, deleteScene, dismiss, runAutomation, markEventDone, patchApp, resetDemo, toggleAutomation, togglePerm,
   useApp, type EventCat, type PermKey,
 } from '../state/store';
 import { clock } from '../state/derived';
@@ -11,7 +11,8 @@ import { loadHAConfig } from '../devices';
 
 /* ---------------- Automationer ---------------- */
 
-const WHEN = { hem: 'Jag kommer hem', klocka: 'Kl 07:00', dorr: 'Dörren öppnas', sol: 'Solnedgång', pris: 'Billig el' } as const;
+const WHEN = { hem: 'Jag kommer hem', klocka: 'Kl 07:00', dorr: 'Dörren låses upp', sol: 'Solnedgång', pris: 'Billig el' } as const;
+const WHEN_RULE: Record<keyof typeof WHEN, string> = { hem: 'home', klocka: 'time:07:00', dorr: 'door', sol: 'sun', pris: 'cheap' };
 const DO = { hall: 'Tänd hallen', varme: 'Höj värmen', pers: 'Persienner ner', musik: 'Spela musik', las: 'Lås dörren' } as const;
 
 export function Automationer() {
@@ -29,7 +30,7 @@ export function Automationer() {
       {tipOpen && (
         <AgirTip label="Agir har sett ett mönster" text="Ni stänger av kaffebryggaren varje vardag runt 07:45. Ska jag göra det automatiskt när sista personen går?"
           yes="Skapa automation" no="Inte nu"
-          onYes={() => { addAutomation('Kaffebryggaren av', 'När sista personen går på vardagar'); setTip('ja'); dismiss('tip-kaffe'); }}
+          onYes={() => { addAutomation('Kaffebryggaren av', 'När ni går (Borta)', 'leave', ['plug-off:p2']); setTip('ja'); dismiss('tip-kaffe'); }}
           onNo={() => dismiss('tip-kaffe')} />
       )}
       {tip === 'ja' && <Done>Klart. Kaffebryggaren stängs av när ni går.</Done>}
@@ -41,7 +42,7 @@ export function Automationer() {
         <span className="mini-label">GÖR</span>
         <div className="chips">{(Object.keys(DO) as (keyof typeof DO)[]).map((k) => <Chip key={k} on={dos.includes(k)} onClick={() => setDos(dos.includes(k) ? dos.filter((x) => x !== k) : [...dos, k])}>{DO[k]}</Chip>)}</div>
         <button className={'knapp-stor tryck' + (kan ? '' : ' av')} disabled={!kan}
-          onClick={() => { addAutomation(WHEN[when], dos.map((d) => DO[d]).join(', ')); setDos([]); toast('Automationen är sparad och aktiv.'); }}>
+          onClick={() => { addAutomation(WHEN[when], dos.map((d) => DO[d]).join(', '), WHEN_RULE[when], dos); setDos([]); toast('Automationen är sparad och aktiv.'); }}>
           {kan ? 'Spara automation' : 'Välj minst en åtgärd'}
         </button>
       </div>
@@ -60,7 +61,13 @@ export function Automationer() {
 
       <SectionLabel>Dina automationer</SectionLabel>
       <div className="rader">
-        {s.automations.map((a) => <Row key={a.id} label={a.name} sub={a.sub} right={<Switch on={a.on} label={a.name} onToggle={() => toggleAutomation(a.id)} />} />)}
+        {s.automations.map((a) => (
+          <Row key={a.id} label={a.name} sub={a.lastRun ? `${a.sub} · körde ${clock(a.lastRun)}` : a.sub}
+            right={<div className="rad-knappar">
+              {a.on && <button className="chip liten tryck" onClick={() => { runAutomation(a, 'Kördes för hand.'); toast(`${a.name} körs nu.`); }}>Kör nu</button>}
+              <Switch on={a.on} label={a.name} onToggle={() => toggleAutomation(a.id)} />
+            </div>} />
+        ))}
       </div>
     </div>
   );
@@ -181,6 +188,12 @@ export function Installningar() {
 
 /* ---------------- Händelser ---------------- */
 
+const dayLabel = (t: number) => {
+  const d = new Date(t), now = new Date();
+  const days = Math.round((new Date(now.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86400000);
+  return days === 0 ? 'Idag' : days === 1 ? 'Igår' : d.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' });
+};
+
 const CAT_COLOR: Record<EventCat, string> = { sak: '#F0A030', klim: '#FF9B57', agir: '#E6CFA6', energi: '#2CC56F' };
 const FILTERS: [EventCat | 'allt', string][] = [['allt', 'Allt'], ['sak', 'Säkerhet'], ['klim', 'Klimat'], ['energi', 'Energi'], ['agir', 'Agir']];
 
@@ -196,8 +209,10 @@ export function Handelser() {
         {FILTERS.map(([id, label]) => <Chip key={id} on={f === id} onClick={() => setF(id)}>{label}</Chip>)}
       </div>
       <div className="logg">
-        {list.map((e) => (
-          <div key={e.id} className="logg-rad">
+        {list.map((e, i) => (
+          <div key={e.id}>
+          {(i === 0 || dayLabel(list[i - 1].at) !== dayLabel(e.at)) && <span className="sektion dag">{dayLabel(e.at)}</span>}
+          <div className="logg-rad">
             <span className="logg-tid">{clock(e.at)}</span>
             <div className="logg-text">
               <span className="logg-titel"><span className="prick" style={{ background: CAT_COLOR[e.cat] }} />{e.title}</span>
@@ -209,6 +224,7 @@ export function Handelser() {
                 </button>
               )}
             </div>
+          </div>
           </div>
         ))}
         {list.length === 0 && <span className="tom">Inga händelser här än.</span>}

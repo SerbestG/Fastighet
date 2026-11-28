@@ -144,7 +144,12 @@ export function Valkommen() {
     const s = getState();
     const heat = allPlacements(s).filter((p) => p.kind === 'heat' && s.devices[p.id]?.mode === 'comfort');
     setMany(Object.fromEntries(heat.map((h) => [h.id, { value: temp }])));
-    if (pref.sol) addAutomation('Mjuk väckning', `${wake} · ljuset tonas upp 20 min innan`);
+    if (pref.sol) {
+      const [h, m] = wake.split(':').map(Number);
+      const t = new Date(0, 0, 1, h, m - 20);
+      const at = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+      addAutomation('Mjuk väckning', `${at} · sovrummet tonas upp inför ${wake}`, `time:${at}`, ['wake']);
+    }
     patchApp({
       onboarded: true, wake, comfort: temp,
       automations: getState().automations.map((a) => (a.id === 'a1' ? { ...a, on: pref.natt } : a.id === 'a2' ? { ...a, on: pref.borta } : a)),

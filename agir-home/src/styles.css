@@ -466,3 +466,12 @@ html[data-nav='back']::view-transition-new(root) { animation-name: vt-in-b; }
 .ja { color: var(--gron); font-weight: 700; }
 .produkt .pris { font-size: 12px; font-weight: 600; color: var(--acc-ljus); }
 .produkt.vald { border-color: rgba(212, 180, 131, 0.7); background: rgba(212, 180, 131, 0.1); }
+
+/* Rumsnamn som står upprätt i 3D */
+.rumskylt { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; transition: transform 620ms var(--ease), opacity 400ms; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8); }
+.is-dragging .rumskylt { transition: none; }
+.rumskylt-namn { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: #E4E5E7; }
+.rumskylt-info { font-size: 11px; font-weight: 500; color: var(--dim); font-variant-numeric: tabular-nums; }
+.rad-knappar { display: flex; align-items: center; gap: 10px; flex: none; }
+.chip.liten { min-height: 34px; padding: 0 12px; font-size: 12px; }
+.sektion.dag { padding-top: 14px; }

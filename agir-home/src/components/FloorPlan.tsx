@@ -6,9 +6,11 @@ import { allPlacements, setView, useApp, type AppState } from '../state/store';
 import { fmtKw, fmtTemp, heatColor, roomPower } from '../state/derived';
 import { Icon } from './Icon';
 
-export type Layer = 'allt' | 'ljus' | 'klimat' | 'sakerhet' | 'media' | 'energi';
+/** 'hem' = lugn översikt: bara ljus, lås och det som behöver åtgärdas. */
+export type Layer = 'hem' | 'allt' | 'ljus' | 'klimat' | 'sakerhet' | 'media' | 'energi';
 
 const LAYER_KINDS: Record<Layer, DeviceKind[] | null> = {
+  hem: null,
   allt: null,
   ljus: ['light', 'strip', 'plug', 'relay', 'button', 'motion'],
   klimat: ['heat', 'blind', 'window'],
@@ -173,7 +175,7 @@ export function FloorPlan({ layer, sel, onSel, rsel, onRsel, room, onRoom }: Pro
       const hs = s.devices[heat.id];
       const c = hs.mode === 'off' || !hs.on ? '110,150,210' : heatColor(hs.value);
       bg = `radial-gradient(circle at 50% 55%, rgba(${c},${hs.mode === 'off' ? 0.12 : 0.4}), rgba(${c},0.02) 78%), ${ROOM_BG}`;
-    } else if (level > 0 && (layer === 'allt' || layer === 'ljus')) {
+    } else if (level > 0 && (layer === 'allt' || layer === 'hem' || layer === 'ljus')) {
       bg = `radial-gradient(circle at 50% 42%, rgba(${tone},${(0.12 + level * 0.5).toFixed(2)}), rgba(${tone},0.02) 74%), ${ROOM_BG}`;
       if (tre) glow = `, 0 0 ${Math.round(18 + level * 34)}px rgba(${tone},${(level * 0.22).toFixed(2)})`;
     }
@@ -200,8 +202,6 @@ export function FloorPlan({ layer, sel, onSel, rsel, onRsel, room, onRoom }: Pro
   };
 
   /* ---------- symboler ---------- */
-  const kinds = LAYER_KINDS[layer];
-  const pins = P.filter((p) => (!kinds || kinds.includes(p.kind)) && (!RR || p.room === RR.id));
 
   const pinLook = (p: Placement) => {
     const d = s.devices[p.id];
@@ -218,6 +218,13 @@ export function FloorPlan({ layer, sel, onSel, rsel, onRsel, room, onRoom }: Pro
     return { bg: '#2C2D30', fg: '#A4A6AA', shadow: '0 2px 8px rgba(0,0,0,0.7)', warn };
   };
 
+  // I ett öppnat rum syns allt i rummet. Annars styr lagret – och Hem visar bara det viktiga.
+  const kinds = LAYER_KINDS[layer];
+  const pins = RR
+    ? P.filter((p) => p.room === RR.id)
+    : P.filter((p) => (layer === 'hem' ? isLightLike(p) || p.kind === 'lock' || pinLook(p).warn : !kinds || kinds.includes(p.kind)));
+  const billboard = tre ? `rotateZ(${-cam.rz}deg) rotateX(${-cam.rx}deg)` : '';
+
   const walls = RR && tre ? glassWalls(RR) : [];
   const hint = RR ? (tre ? 'Dra för att vrida rummet' : 'Tryck på en symbol för att styra den') : tre ? 'Dra för att vrida · nyp för att zooma · dubbeltryck på ett rum' : 'Dra för att flytta ritningen';
   const rr = RR ? roomStats(s, RR.id) : null;
@@ -231,10 +238,21 @@ export function FloorPlan({ layer, sel, onSel, rsel, onRsel, room, onRoom }: Pro
               <div key={r.id} className="rum" style={roomStyle(r)} onClick={() => tapRoom(r.id)}
                 role="button" tabIndex={RR && r.id !== RR.id ? -1 : 0} aria-label={`${r.name}, ${roomInfo(r)}`}
                 onKeyDown={(e) => { if (e.key === 'Enter') { onRoom(r.id); onRsel(r.id); } else if (e.key === ' ') { e.preventDefault(); onRsel(r.id); } }}>
-                <span className="rum-namn">{r.name}</span>
-                <span className="rum-info">{roomInfo(r)}</span>
+                {!tre && <><span className="rum-namn">{r.name}</span><span className="rum-info">{roomInfo(r)}</span></>}
               </div>
             ))}
+            {tre && rooms.filter((r) => !RR || r.id === RR.id).map((r) => {
+              // Rumsnamnet står upprätt och vänt mot dig, och väljer en plats där ingen symbol står.
+              const spots: [number, number][] = [[r.x + r.w / 2, r.y + r.h - 16], [r.x + r.w / 2, r.y + r.h / 2], [r.x + r.w * 0.3, r.y + r.h - 16], [r.x + r.w * 0.7, r.y + r.h - 16], [r.x + r.w / 2, r.y + 18]];
+              const free = spots.find(([x, y]) => !pins.some((p) => Math.abs(p.x - x) < 34 && Math.abs(p.y - y) < 24)) ?? spots[0];
+              return (
+              <span key={'s' + r.id} className="rumskylt" aria-hidden="true"
+                style={{ left: free[0], top: free[1], transform: `translate(-50%, -50%) ${billboard} translateY(-6px) scale(${pinScale.toFixed(3)})` }}>
+                <span className="rumskylt-namn">{r.name}</span>
+                <span className="rumskylt-info">{roomInfo(r)}</span>
+              </span>
+              );
+            })}
             {walls.map((w, i) => <span key={i} aria-hidden="true" className="glas" style={w} />)}
             {WINDOWS[view.floor].map(([x, y, w, h], i) => <span key={i} aria-hidden="true" className="win" style={{ left: x, top: y, width: w, height: h }} />)}
             {pins.map((p) => {

@@ -16,7 +16,11 @@ export interface HomeEvent {
   done?: boolean;
 }
 
-export interface Automation { id: string; name: string; sub: string; on: boolean }
+/**
+ * När: 'time:HH:MM' | 'sun' (solnedgång) | 'cheap' (billigaste elen) | 'home' (Hemma-scenen) | 'leave' (Borta) | 'door' (dörren låses upp) | 'leak'
+ * Gör: 'hall' | 'varme' | 'pers' | 'musik' | 'las' | 'scene:<id>' | 'water-off' | 'wake' | 'plug-off:<id>'
+ */
+export interface Automation { id: string; name: string; sub: string; on: boolean; when?: string; dos?: string[]; lastRun?: number }
 
 export interface Member { id: string; name: string; initial: string; role: string; color: string; desc: string }
 export type PermKey = 'ljus' | 'varme' | 'las' | 'larm' | 'kamera' | 'ladd';
@@ -49,7 +53,8 @@ export interface AppState {
 }
 
 const APP_KEY = 'agir.app.v1';
-const today = (h: number, m: number) => { const d = new Date(); d.setHours(h, m, 0, 0); return d.getTime(); };
+// Demohändelsernas klockslag: idag om tiden redan passerats, annars igår – aldrig i framtiden.
+const today = (h: number, m: number) => { const d = new Date(); d.setHours(h, m, 0, 0); if (d.getTime() > Date.now()) d.setDate(d.getDate() - 1); return d.getTime(); };
 
 const SEED_EVENTS: HomeEvent[] = [
   { id: 'bud', at: today(21, 38), cat: 'sak', title: 'Bud vid porten', sub: 'Kameran ser ett paket. Öppna porten?', action: { label: 'Öppna porten', done: 'Porten öppnad', run: 'port' } },
@@ -131,6 +136,7 @@ export async function boot() {
       const before = state.devices[e.id];
       set((s) => ({ devices: { ...s.devices, [e.id]: e.state } }));
       if (e.state.lastMotion && e.state.lastMotion !== before?.lastMotion) onMotion(e.id);
+      if (e.state.alert && !before?.alert && placement(e.id)?.kind === 'leak') trigger('leak');
     }
     else if (e.type === 'alarm') set({ alarm: e.mode });
     else if (e.type === 'connection') set({ online: e.online });
@@ -239,6 +245,7 @@ export function setDevice(id: string, patch: Partial<DeviceState>) {
   const p = placement(id);
   if (p?.kind === 'lock' && patch.on !== undefined) {
     logEvent('sak', patch.on ? 'Ytterdörren låstes' : 'Ytterdörren låstes upp', 'Från appen.');
+    if (!patch.on) trigger('door');
     window.clearTimeout(autoLock);
     // Agir låser igen efter två minuter, som appen lovar.
     if (!patch.on) autoLock = window.setTimeout(() => {
@@ -262,6 +269,8 @@ export function applyScene(sc: Scene, kind: 'home' | 'light' = 'home') {
   if (sc.alarm) setAlarm(sc.alarm, false);
   if (kind === 'home') set({ scene: sc.id });
   else set({ lightScene: sc.id });
+  if (sc.id === 'hemma') trigger('home');
+  if (sc.id === 'borta') trigger('leave');
   logEvent('agir', `Scenen ${sc.label} startade`, 'Från appen.');
 }
 
@@ -306,9 +315,72 @@ export const patchApp = (p: Partial<AppState>) => set(p);
 export function toggleAutomation(id: string) {
   set((s) => ({ automations: s.automations.map((a) => (a.id === id ? { ...a, on: !a.on } : a)) }));
 }
-export function addAutomation(name: string, sub: string) {
-  set((s) => ({ automations: [{ id: `a${Date.now().toString(36)}`, name, sub, on: true }, ...s.automations] }));
+export function addAutomation(name: string, sub: string, when?: string, dos?: string[]) {
+  set((s) => ({ automations: [{ id: `a${Date.now().toString(36)}`, name, sub, on: true, when, dos }, ...s.automations] }));
 }
+
+/* ---------- automationerna körs på riktigt ---------- */
+
+// Automationer från tidigare versioner saknar när/gör – de får sina regler här.
+const SEED_RULES: Record<string, { when: string; dos: string[] }> = {
+  a1: { when: 'time:23:00', dos: ['scene:natt'] },
+  a2: { when: 'leave', dos: ['las'] },
+  a3: { when: 'cheap', dos: ['cheap'] },
+  a4: { when: 'leak', dos: ['water-off'] },
+  a5: { when: 'sun', dos: ['scene:middag'] },
+};
+const rule = (a: Automation) => (a.when ? { when: a.when, dos: a.dos ?? [] } : SEED_RULES[a.id]);
+
+/** Ungefärlig solnedgång i Mellansverige per månad (timme, minut). */
+const SUNSET: [number, number][] = [[15, 15], [16, 20], [17, 45], [19, 55], [21, 5], [22, 0], [21, 45], [20, 40], [19, 15], [17, 50], [15, 55], [14, 55]];
+
+function runAction(d: string) {
+  const P = allPlacements();
+  const first = (k: DeviceKind) => P.find((p) => p.kind === k);
+  if (d.startsWith('scene:')) { const sc = sceneById(d.slice(6)); if (sc) applyScene(sc, LIGHT_SCENES.includes(sc) ? 'light' : 'home'); return; }
+  if (d.startsWith('plug-off:')) { setDevice(d.slice(9), { on: false }); return; }
+  switch (d) {
+    case 'hall': { const l = P.find((p) => p.room === 'hall' && isLightLike(p)); if (l) setDevice(l.id, { on: true, value: 60 }); return; }
+    case 'varme': P.filter((p) => p.kind === 'heat').forEach((p) => { const st = state.devices[p.id]; if (st) setDevice(p.id, { on: true, mode: 'comfort', value: Math.min(30, st.value + 1) }); }); return;
+    case 'pers': P.filter((p) => p.kind === 'blind').forEach((p) => setDevice(p.id, { on: true, value: 0 })); return;
+    case 'musik': { const m = first('media'); if (m) setDevice(m.id, { on: true }); return; }
+    case 'las': { const l = first('lock'); if (l && !state.devices[l.id]?.on) setDevice(l.id, { on: true }); return; }
+    case 'water-off': P.filter((p) => p.kind === 'leak').forEach((p) => setDevice(p.id, { on: false })); return;
+    case 'wake': P.filter((p) => p.room === 'sov' && isLightLike(p)).forEach((p) => setDevice(p.id, { on: true, value: 30, tone: 'auto' })); return;
+    case 'cheap': {
+      const c = first('charger'); if (c && state.devices[c.id]?.mode === 'smart') logEvent('energi', 'Billig el: laddar bilen', 'Smart laddning startade.', true);
+      return;
+    }
+  }
+}
+
+export function runAutomation(a: Automation, reason = '') {
+  const r = rule(a);
+  if (!r || !a.on) return;
+  r.dos.forEach(runAction);
+  set((s) => ({ automations: s.automations.map((x) => (x.id === a.id ? { ...x, lastRun: Date.now() } : x)) }));
+  logEvent('agir', `Automation: ${a.name}`, reason || a.sub, true);
+}
+
+/** Kör alla aktiva automationer som har en viss händelse som "När". */
+export function trigger(event: string) {
+  state.automations.filter((a) => a.on && rule(a)?.when === event).forEach((a) => runAutomation(a));
+}
+
+// Tidsstyrda automationer kontrolleras varje halvminut.
+function tick() {
+  const now = new Date();
+  const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const [sh, sm] = SUNSET[now.getMonth()];
+  const sun = now.getHours() === sh && now.getMinutes() === sm;
+  const cheap = hm === '02:00';
+  for (const a of state.automations) {
+    const r = rule(a);
+    if (!r || !a.on || (a.lastRun && Date.now() - a.lastRun < 90000)) continue;
+    if (r.when === `time:${hm}` || (r.when === 'sun' && sun) || (r.when === 'cheap' && cheap)) runAutomation(a);
+  }
+}
+window.setInterval(tick, 30000);
 export function togglePerm(member: string, key: PermKey) {
   set((s) => ({ perms: { ...s.perms, [member]: { ...s.perms[member], [key]: !s.perms[member][key] } } }));
 }
